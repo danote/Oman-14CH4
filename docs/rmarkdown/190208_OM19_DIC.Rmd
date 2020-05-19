@@ -1,0 +1,981 @@
+---
+---
+---
+title: "Dissolved inorganic C data processing samples obtained in Oman in 2019"
+subtitle: "Source file: 190208_OM19_DIC.Rmd"
+author: "Daniel Nothaft"
+date: "`r format(Sys.Date(), '%d %b %Y')`"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: yes # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: show # change to hide to hide code by default
+editor_options:
+  chunk_output_type: inline
+---
+
+# Notes about data acquisition and processing
+
+This R markdown file performs calibrations for dissolved inorganic carbon ($\sum\text{CO}_2$) concentration ($c$) and isotopic composition ($\delta^{13}\text{C}$) analyzed by acidification of water samples and transfer of resultant $\text{CO}_2$ via a Thermo GasBench to an isotope ratio mass spectrometer. Peak amplitudes are fit by exponential decay to check for proper functioning of the GasBench needle. Only peaks derived from good injections are selected. Exponential fits are then performed on all analyses to project back to the m/z 44 amplitude that would have resulted from an injection occuring at the moment of needle puncture. Expected pCO$_2$ of standards is then calculated from the mass of CaCO$_3$ loaded into vials as well as the volumes of the vial, liquid, and H$_3$PO$_4$ added. A calibration curve is constructed by plotting expected pCO$_2$ of standards vs. their m/z 44 amplitude at t$_0$. $\sum\text{CO}_2$ of the original water sample is calculated based on this calibration. 
+$\delta^{13}$C is corrected for drift, linearity, and isotopic discrimination.
+
+# Load libraries
+
+```{r setup, warning=FALSE, message=FALSE}
+# load libraries
+library(tidyverse) # dplyr, tidyr, ggplot
+library(isoreader) # reading isotope data files
+library(isoprocessor) # processing isotope data files
+library(plotly) # interactive plots
+library(knitr) # generating reports
+library(ggpmisc) # add equations of best fit to ggplot
+library(chemCal) # calculations from calibration curve
+
+# source all relevant scripting files
+source(file.path("scripts", "plotting_functions.R"))
+
+# global knitting options for automatic saving of all plots as .png and .pdf
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("fig_output/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input()))),
+  cache.path = file.path("cache/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input())))
+)
+```
+
+Data processed using the packages [isoreader](http://isoreader.kopflab.org) version `r packageVersion("isoreader")` and [isoprocessor](http://isoprocessor.kopflab.org/) version `r packageVersion("isoprocessor")`.
+
+# Load Data
+
+```{r load-data, message=FALSE}
+iso_files_raw <- 
+  file.path(
+    "data_raw/190208_DBN_DIC", "190208_DBN_DIC_data.cf.rds"
+  ) %>%
+      # read data files in parallel for fast read
+  iso_read_continuous_flow(parallel = TRUE)
+```
+
+# Process file info & peak table
+
+```{r process-file-info}
+# process
+iso_files <- iso_files_raw %>% 
+  # set peak table from vendor data table
+  iso_set_peak_table_from_auto_vendor_data_table() %>% 
+  # rename key file info columns
+  iso_rename_file_info(id1 = `Identifier 1`, type = `Identifier 2`) %>%
+  # parse text info into numbers
+  iso_parse_file_info(number = Analysis) %>%
+  # process other file information that is specific to the naming conventions
+  # of this particular sequence
+  iso_mutate_file_info(
+    # what was the mass of carbonate standard loaded?
+    mass_loaded = parse_number(Comment) %>% iso_double_with_units("ug"),
+    vol_vial = parse_number(Preparation) %>% iso_double_with_units("ml")
+  )
+```
+
+## Chromatograms
+
+Display chromatograms of all samples and standards. The first four peaks are reference peaks. The smaller sharp peak after that is a half-inject used to clear the sample loop.
+
+```{r chroms}
+chroms <- iso_files %>% 
+  iso_plot_continuous_flow_data(
+    data = c(44),
+    color = NULL
+  ) +
+  theme(legend.position = "bottom")
+
+chroms
+```
+
+## Peak maps
+```{r peak-maps}
+# note: we do not consider first two sample inject peaks as analyte peaks to be sure that there is no carryover between samples
+
+peak_maps <- 
+  tibble::tribble(
+    ~compound,          ~ref_nr,    ~`rt`,
+    # peak map data (row-by-row)
+    "CO2 ref",          1,      26,
+    "CO2 ref",          2,      51,
+    "CO2 ref",          3,      75,
+    "CO2 ref",          4,      100,
+    "CO2 half inject",  NA,     148,
+    "CO2 first sample peak",      NA,     169,
+    "CO2 analyte",      NA,     219,
+    "CO2 analyte",      NA,     269,
+    "CO2 analyte",      NA,     319,
+    "CO2 analyte",      NA,     368,
+    "CO2 analyte",      NA,     418,
+    "CO2 analyte",      NA,     468,
+    "CO2 analyte",      NA,     518,
+    "CO2 analyte",      NA,     568,
+    "CO2 analyte",      NA,     617
+  )
+peak_maps %>% knitr::kable(digits = 0)
+```
+
+## Fetch peak table
+```{r peak-table}
+# identify peaks
+peak_table_w_ids <- iso_files %>% 
+  iso_map_peaks(peak_maps) %>%
+  # peak table
+  iso_get_peak_table(include_file_info = everything())
+```
+
+
+Display an example chromatogram with peaks labeled.
+```{r chrom-labeled, fig.height=5}
+chrom_labeled <- iso_files %>%
+  iso_filter_files(id1 == "205 ug HIS mon2") %>% 
+  iso_plot_continuous_flow_data(
+    # select data and aesthetics
+    data = c(44),
+    color = id1,
+    # provide our peak table with ids
+    peak_table = peak_table_w_ids, 
+    # define peak labels, this can be any valid expression
+    peak_label = iso_format(id = peak_info)
+  ) +
+  theme(
+    legend.position = "bottom"
+  )
+
+chrom_labeled
+```
+
+## Select analyte peaks
+```{r select-analyte-peaks}
+# focus on analyte peaks
+peak_table_analytes <- peak_table_w_ids %>% 
+  # omit reference peaks and half inject for further processing (i.e. analyte peaks only)
+  filter(compound == "CO2 analyte")
+
+# print
+peak_table_analytes
+```
+
+# Concentration calibrations
+
+## Quality control of peaks
+
+Add columns to data frame for the period of time between the GasBench needle puncturing the vial and it being injected to the GC-IRMS.
+```{r mutate-transfer-t}
+sample_transfer_t_s <- 53 # seconds between needle stabbing vial and start of acquisition
+
+rt_CO2_s <- 150 # actual CO2 retention time from start of inject to m/z 44 peak on mass spec
+
+peak_table_analytes <- peak_table_analytes %>% mutate(t_stab_to_inject_s = rt - rt_CO2_s + sample_transfer_t_s) # make column for time between stabbing of gasbench needle and injection
+```
+
+Find and plot a model chromatogram with good injection.
+```{r chrom-model-good}
+iso_files %>% iso_filter_files(id1 == "205 ug HIS mon2") %>% 
+  iso_plot_continuous_flow_data(
+    data = c("44"),
+    color = file_id
+  ) +
+  theme(legend.position = "bottom")
+```
+
+Plot the peak amplitudes of the training chromatogram vs. time from start of He dilution. A non-linear least squares model of exponential decay of m/z 44 amplitude vs. time from needle puncture to inject provides a good fit to the data. This is consistent with physical reality since the sample CO$_2$ is in a constant volume and is being diluted with a constant flow of He.
+
+```{r chrom-training, warning=FALSE}
+training_chrom <- peak_table_analytes %>% filter(id1 == "205 ug HIS mon2")
+
+training_chrom %>% 
+   ggplot() +
+  aes(
+    x = t_stab_to_inject_s,
+    y = amp44
+    ) +
+  geom_point() +
+geom_line(data = function(df) mutate(df, amp44 = nls(amp44 ~ A*exp(-k*t_stab_to_inject_s), start = c(A = 10000, k = 0.0001), data = df) %>% predict()), alpha = 0.4)+
+    scale_x_continuous(name = "time from GasBench needle puncture until injection on GC-IRMS [s]", limits = c(0, 600), expand = c(0,0)) +
+  scale_y_continuous(name = ("m/z 44 peak amplitude [mV]"))+
+  theme_bw()
+```
+
+Make non-linear least squares model based on the 'training chromatogram'.
+```{r exp-model, warning=FALSE}
+exp_model <- nls(data = training_chrom, formula = amp44 ~ A*exp(-k*t_stab_to_inject_s), start = c(A = 10000, k = 0.0001)) # make and save model
+
+summary(exp_model) # print summary of the model
+```
+
+Save exponential decay variable, k
+```{r save-k}
+k <- as.numeric(coef(exp_model)[2]) # save k
+
+k # print k
+```
+
+For demonstration purposes, find and plot a model chromatogram with some bad injections.
+
+We can see in the following chromatogram that the first few peaks don't follow the expected trend of decreasing amplitude with time. This indicates partial needle clogging, probably due to water condensation on underside of septum, causing some weak injections in this sample.
+```{r chrom-model-bad}
+iso_files %>% iso_filter_files(id1 == "194 ug YULE drift1") %>% 
+  iso_plot_continuous_flow_data(
+    data = c(44),
+    color = file_id
+  ) +
+  theme(legend.position = "bottom")
+```
+
+For demonstration purposes, now re-plot m/z 44 peak amplitude vs. period of time between the GasBench needle puncturing the vial and it being injected to the GC-IRMS, same chromatogram as above.
+```{r weak-inject-chrom-ampls}
+weak_inject_chrom <- peak_table_analytes %>% filter(id1 == "194 ug YULE drift1")
+
+weak_inject_chrom %>% 
+   ggplot() +
+  aes(
+    x = t_stab_to_inject_s,
+    y = amp44
+    ) +
+  geom_point()+
+    scale_x_continuous(name = "time from GasBench needle puncture until injection on GC-IRMS [s]", limits = c(0, 600), expand = c(0,0)) +
+  scale_y_continuous(name = ("m/z 44 peak amplitude [mV]"))+
+  theme_bw()
+```
+
+Now, plot all peaks alongside the fit which gives the largest m/z 44 peak amplitude at t$_0$. It is visibly clear which injects were affected by partial needle obstruction.
+```{r weak-inject-chrom-ampls-fit}
+weak_inject_chrom <- weak_inject_chrom %>% mutate(amp44_t0_per_peak = amp44 * exp(k*t_stab_to_inject_s)) # For each peak, calculate the projected amplitude at t0 in the chromatogram
+
+weak_inject_chrom_max_amp44_t0  <- weak_inject_chrom %>% filter(amp44_t0_per_peak == max(amp44_t0_per_peak)) # select largest projected amplitude at t0 in the chromatogram
+ 
+max_amp44_t0 <- weak_inject_chrom_max_amp44_t0$amp44_t0_per_peak # save largest projected amplitude at t0
+
+t_max_amp44_t0 <- weak_inject_chrom_max_amp44_t0$t_stab_to_inject_s # save the time of the peak with largest projected amplitude at t0
+ 
+weak_inject_chrom_fit_function <- function (x) max_amp44_t0*exp(-k*x) # write function to calculate amp44 as a function of t based on the projected amplitude at t0 estimated from the largest peak of the weak inject chromatogram and the k value from the good chromatogram
+
+# plot the peak and the fit based on the point with largest project amp44 t0
+weak_inject_chrom %>%
+  ggplot() +
+      stat_function(data = data.frame(amp44=c(1, 600)), aes(x=amp44), fun = weak_inject_chrom_fit_function, geom="line") +
+  aes(
+    x = t_stab_to_inject_s,
+    y = amp44
+    ) +
+  geom_point(color="blue") +
+    scale_x_continuous(name = "time from GasBench needle puncture until injection on GC-IRMS [s]", limits = c(0, 600), expand = c(0,0)) +
+  scale_y_continuous(name = ("m/z 44 peak amplitude [mV]"))+
+  theme_bw()
+```
+
+Estimate the expected m/z 44 peak amplitudes of all peaks if proper injections occured based on the maximum projected amplitude at t$_0$ for each analysis. 
+```{r "estimate_ampl_t0", warning=FALSE}
+peak_table_analytes_max_peaks <- peak_table_analytes %>% mutate(amp44_t0_per_peak = amp44 * exp(k*t_stab_to_inject_s)) # For each peak, calculate the projected amplitude at t0 in the chromatogram
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks  %>% group_by(file_id) %>% mutate(max_amp44_t0 = max(amp44_t0_per_peak)) # add column for largest projected m/z 44 peak amplitude at t0 per peak for a given analysis
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks %>% group_by(file_id) %>% mutate(t_of_max_amp44_t0 = ifelse(amp44_t0_per_peak == max_amp44_t0, t_stab_to_inject_s, 0)) # add column for t_stab_to_inject for the peak with largest projected m/z 44 peak amplitude at t0
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks %>% group_by(file_id) %>% mutate(t_of_max_amp44_t0_copied = max(t_of_max_amp44_t0)) %>% select(-t_of_max_amp44_t0) # copy t_of_max_amp44_t0 to whole row and delete previously made column
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks %>% group_by(file_id) %>% mutate(amp44_expected = max_amp44_t0*exp(-k*t_stab_to_inject_s)) # estimate what the amp44 would have been based on the peak with largest projected m/z 44 peak amplitude at t0 and previously calculated value of k
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks %>% group_by(file_id) %>% mutate(amp44_expected_plus5percent = amp44_expected + amp44_expected*.05) # make column for expected amp44 + 5%
+
+peak_table_analytes_max_peaks <- peak_table_analytes_max_peaks %>% group_by(file_id) %>% mutate(amp44_expected_minus5percent = amp44_expected - amp44_expected*.05) # make column for expected amp44 - 5%
+```
+
+Plot measured m/z 44 peak amplitude as well as expected peak amplitude ± 5%. By playing around with the interactive plot, it should be clear that normal injections are consistently within the expected value 5±%, and the bad injections are obviously out of this range. 5% is an arbitrarily selected tuning factor.
+
+It's worth noting that the ~12 ml Exetainer vials generally require a somewhat larger tolerance compared to the ~119 ml vials that I sometimes use for lower concentration samples (i.e. 5% as opposed to 1.5%). This is because the larger vials have a larger headspace and therefore slower dilution, so the exact peak fitting parameters are typically less sensitive for the bigger vials.
+
+```{r amp44-measured-v-expected, fig.width=15, fig.height=8}
+amp44_measured_v_expected <- peak_table_analytes_max_peaks %>%
+   ggplot() +
+  aes(
+    x = t_stab_to_inject_s,
+    y = amp44,
+    color = file_id
+    ) +
+geom_pointrange(aes(y = amp44_expected, ymin = amp44_expected_minus5percent, ymax = amp44_expected_plus5percent, label = "expected_amp44"), size = 2, alpha=0.5)+
+  geom_point(size=1, aes(label = d13C))+
+      scale_x_continuous(name = "time from GasBench needle puncture until injection on GC-IRMS [s]", limits = c(0, 600), expand = c(0,0)) +
+  scale_y_continuous(name = ("m/z 44 peak amplitude [mV]"))+
+    theme_bw()
+
+amp44_measured_v_expected %>% ggplotly()
+```
+
+### Filter out bad peaks
+
+Filter out peaks that are not within 5% of the expected value for amp44
+```{r filter-out-bad-injects}
+peak_table_analytes_max_peaks_filtered <- peak_table_analytes_max_peaks %>% filter(amp44 > amp44_expected_minus5percent & amp44 < amp44_expected_plus5percent) # filter out peaks that are not within 5% of the expected value for amp44
+```
+
+Plot peaks filtered for good injections
+```{r plot-good-peaks, fig.width=15, fig.height=8}
+filtered_for_good_injects <- peak_table_analytes_max_peaks_filtered  %>%
+   ggplot() +
+  aes(
+    x = t_stab_to_inject_s,
+    y = amp44,
+    color = file_id
+    )+
+        scale_x_continuous(name = "time from GasBench needle puncture until injection on GC-IRMS [s]", limits = c(0, 600), expand = c(0,0)) +
+  scale_y_continuous(name = ("m/z 44 peak amplitude [mV]"))+
+  geom_point(size=2)+
+    theme_bw()
+
+filtered_for_good_injects  %>% ggplotly()
+```
+
+Write function for calculating the amplitude of a signal at time 0 given a dataframe of time and signal.
+```{r function-ampl-t0}
+# function for calculating the amplitude of a signal at time 0 given a dataframe of time and signal
+exp_decay_t0 <- function (time, signal, A_guess = 5000, k_guess = k) {
+    ampl_t0 <- coef(nls(formula = signal ~ A*exp(-k*time), start = c(A = A_guess, k = k_guess)))[1]
+    try(return(ampl_t0))
+}
+```
+
+Count peaks left after filtering
+```{r count-peaks}
+peak_counts <- peak_table_analytes_max_peaks_filtered  %>% group_by(file_id) %>% summarise(n=n()) # summarise how many peaks are left after filtering for bad injects
+
+peak_counts #print
+```
+
+Only keep samples with at least 4 peaks after quality filtering
+```{r keep-min-4-peaks}
+peak_table_analytes_summarise <- peak_table_analytes_max_peaks_filtered  %>% group_by(file_id) %>% filter(n()>=4) # only keep samples with at least 4 peaks after quality filtering
+```
+
+### Calculate more exactly m/z 44 peak amplitude at t$_{0}$ based on all peaks in an analysis
+```{r re-calc-ampl-t0, warning=FALSE}
+peak_table_analytes_summarise <- peak_table_analytes_summarise %>% group_by(file_id) %>% mutate(amp44_t0 = exp_decay_t0(time = t_stab_to_inject_s, signal = amp44)) # calculate more exactly amp44 at t0 based on all peaks in the model
+```
+
+### Condense multi-peak dataframe into summary dataframe with one row per analysis.
+```{r summ-peaks, warning=FALSE}
+data <- 
+  peak_table_analytes_summarise %>% 
+  group_by(file_id, id1, type, mass_loaded, amp44_t0) %>% 
+  summarize(
+    num.peaks=n(),
+    d13C.measured=mean(d13C),
+    d13C.sd=sd(d13C),
+    amp44_mean=mean(amp44),
+    amp44.sd=sd(amp44),
+    inv.amp44=1/amp44_mean,
+    file_datetime=mean(file_datetime),
+    vol_vial = mean(vol_vial),
+    Analysis = mean(Analysis)
+  )
+
+data <- data %>% ungroup()
+```
+
+Add column for data type
+```{r mutate-data-type}
+data <- data %>% mutate(type_general = ifelse(type == "sample", "sample", "standard"))
+```
+
+### Calculate limit of quantitation (LOQ)
+
+```{r}
+# data %>% select(file_id, Analysis, amp44_t0)
+
+method_blanks <- data %>% filter(Analysis == 16593 | Analysis == 16595 | Analysis == 16597)
+
+method_blanks %>% select(file_id, Analysis, amp44_t0)
+```
+
+
+```{r calc-LOQ}
+# note: in this run, I included blanks with only H3PO4 and not H3PO4 + water because I only had 1 blank with water and I need at least 2 to calculate LOQ, but still all these blanks are decent representations of true method blanks
+method_blanks <- data %>% filter(Analysis == 16593 | Analysis == 16595 | Analysis == 16597)
+
+method_blanks %>% select(file_id, amp44_t0) %>% kable()
+
+# mean signal of method blanks
+S_mb <- mean(method_blanks$amp44_t0)
+
+S_mb # print
+
+# standard deviation of signal of method blanks
+sd_mb <- sd(method_blanks$amp44_t0)
+
+sd_mb # print
+
+# calculate the signal for limit of quantitation
+# eq. 4.7.4 https://chem.libretexts.org/Bookshelves/Analytical_Chemistry/Book%3A_Analytical_Chemistry_2.0_(Harvey)/04_Evaluating_Analytical_Data/4.7%3A_Detection_Limits
+# The ability to detect the analyte with confidence is not the same as the ability to report with confidence its concentration, or to distinguish between its concentration in two samples. For this reason the American Chemical Society’s Committee on Environmental Analytical Chemistry recommends the limit of quantitation, (SA)LOQ.
+
+S_A_LOQ <- S_mb + 10 * sd_mb
+
+S_A_LOQ # print 
+```
+
+Make units explicit for subsequent calculations. add_row() in following chunk can't handle double with units data class.
+```{r make-units-explicit}
+data <- data %>% iso_make_units_explicit()
+
+# print
+data
+```
+
+Check if data is quantitable
+```{r add-LOQ-as-sample}
+# insert dummy row for LOQ
+# have to make units explicit here because add_row() can't handle double with units
+data <- data %>% iso_make_units_explicit() %>% add_row(file_id = "LOQ", id1 = "LOQ", type_general = "sample", amp44_t0 = S_A_LOQ, `vol_vial [ml]` = 11.7)
+```
+
+```{r add-general-names}
+# add general names for samples
+data <- data %>% mutate(name = case_when(
+  Analysis == 16591 ~ "5 min He purge 190104",
+  Analysis == 16593 ~ "5 min He purge 190104 + 100 ul H3PO4 190104",
+  Analysis == 16595 ~ "5 min He purge 190104 + 100 ul H3PO4 190104",
+  Analysis == 16597 ~ "5 min He purge 190104 + 100 ul H3PO4 190104 + 1 ml boiled MilliQ",
+  Analysis == 16617 ~ "5 min He purge 190104 + 100 ul H3PO4 190104 + 1 ml boiled MilliQ 190104 + 194ug YULE",
+  Analysis == 16618 ~ "WAB71",
+  Analysis == 16619 ~ "NSHQ14",
+  Analysis == 16620 ~ "WAB105",
+  Analysis == 16621 ~ "BA1A_0_30",
+  Analysis == 16624 ~ "BA1A_41_65",
+  Analysis == 16625 ~ "BA1A_108_132",
+  Analysis != 16617 & str_detect(id1, "YULE") == TRUE ~ "YULE",
+  str_detect(id1, "HIS") == TRUE ~ "HIS",
+  str_detect(id1, "LSVEC") == TRUE ~ "LSVEC",
+  str_detect(id1, "sequoia") == TRUE ~ "CU Sequoia flush gas",
+  is.na(Analysis) ~ "LOQ"
+  ))
+  
+data  %>% select(file_id, name) %>% kable()
+```
+
+```{r check-if-quantitatable}
+# add column for samples above or below limit of quantitation
+data <- data %>% mutate(quantitatable = ifelse(amp44_t0 >= S_A_LOQ, TRUE, FALSE))
+
+# select relevant data and print
+data %>% select(file_id, amp44_t0, quantitatable) %>% kable()
+```
+
+## Create calibration curve
+
+Correct data types for calculations
+
+## Adjust some constants depending on sample preparation. *User input needed.*
+```{r input-sample-params}
+vol_H2O_sample_ml <- 1 # volume of water sample in ml
+vol_H3PO4_added_ml <- .1 # volume of concentrated H3PO4 added to samples and standards
+```
+
+select standards for calibration curve
+```{r select-stnds}
+linC <- data %>% filter(type == "lin.std") # filter for linearity standards
+```
+
+Plot calib curve based on mass loaded
+```{r plot-calib-mass-loaded}
+calib_DIC <-
+ggplot (linC, aes(x=`mass_loaded [ug]`, y=amp44_t0, label = num.peaks)) +
+  geom_point() +
+          scale_x_continuous(name = "mass CaCO3 loaded [µg]") +
+  scale_y_continuous(name = ("m/z 44 peak amplitude t0 [mV]"))+
+  theme_bw()
+
+calib_DIC %>% ggplotly()
+```
+
+Something appears wrong with the 49µg standard. Perhaps an error in weighing and transferring the standard, or piece of standard got stuck on the side of Exetainer and did not dissolve, or cap was not properly closed, allowing CO$_2$ to diffuse out. The chromatogram below looks fine, so it's unclear what the problem was.
+```{r chrom-bad-stnd}
+iso_files %>% iso_filter_files(id1 == "435 ug YULE lin") %>% 
+  iso_plot_continuous_flow_data(
+    data = c(44),
+    color = id1
+  )
+```
+
+Cull 435µg YULE from linearity standards
+```{r cull-bad-stnd}
+linC <- linC %>% filter(id1 != "435 ug YULE lin") # low yield for 49 ug sample 
+```
+
+Replot calibration curve with 435 µg standard culled
+```{r plot-calib-mass-loaded-culled}
+calib_mass_loaded_summ <- summary(lm(linC$amp44_t0 ~ linC$`mass_loaded [ug]`)) # summarize regression of m/z 44 amplitude at t0 vs. mass loaded
+
+calib_DIC_2  <- 
+  ggplot(linC, aes(x=`mass_loaded [ug]`, y=amp44_t0)) +
+  geom_smooth(method="lm", color = "blue") +
+  geom_point(shape=21, fill="black", size = 2)+
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = linC$amp44_t0 ~ linC$`mass_loaded [ug]` , parse = TRUE, rr.digits = 6, color = "blue")+
+ scale_x_continuous(name = latex2exp::TeX("mass CaCO$_3$ loaded $\\[$µg$\\]$"))+
+ scale_y_continuous(name = latex2exp::TeX("m/z 44 peak amplitude t$_0$ $\\[$mV$\\]$"))+
+theme_bw()
+
+calib_DIC_2
+```
+
+Preparing constants and equations to calculate pCO$_2$ from µg CaCO$_3$
+```{r constants}
+# calculating henry's constant at lab conditions
+
+R <- 0.083144598 # R (l * bar * K−1 * mol−1)
+Pa_bar  <- 1e5 # Pa/bar
+l_m3 <- 1e3 # l m^-3
+
+Hcp_CO2_25C_DI <- 3.30E-04 # Henry's constant (Hcp) @ 298.15K in deonized water (Sander, 2015)[mol m^-3 Pa^-1]
+#eqn:  Hcc = c(aq) / c(g)
+#Hcc = Hcp * R * T
+Hcp_lit_temp_K <- 298.15 # temp in K of literature henry constant
+
+Hcp_CO2_25C_DI_bar <- Hcp_CO2_25C_DI * Pa_bar / l_m3 # Hcp mol L^-1 bar^-1
+Hcc_CO2_25C_DI <- Hcp_CO2_25C_DI_bar * R * Hcp_lit_temp_K # dimensionless Hcc
+
+Hcp_temp_correct_factor  <- 2400 #dlnHcp/d(1/T) [K] temperature correction factor (Sander, 2015)
+
+lab_temp_C <- 21
+lab_temp_K <- lab_temp_C + 273.15
+
+Hcp_CO2_lab_temp_DI <- Hcp_CO2_25C_DI * exp(Hcp_temp_correct_factor * (1/lab_temp_K - 1/Hcp_lit_temp_K)) #Henry constant at lab temp in DI water [mol m^-3 Pa^-1]
+
+Hcp_CO2_lab_temp_DI_bar <- Hcp_CO2_lab_temp_DI * Pa_bar / l_m3 # Hcp mol L^-1 bar^-1
+
+Hcc_CO2_lab_temp_DI <- Hcp_CO2_lab_temp_DI_bar * R * lab_temp_K # dimensionless Hcc
+
+PO4_stock_M <- 14.8 # moles / liter of phosphate in concentrated stock sol'n (85 wt %) https://www.sigmaaldrich.com/chemistry/stockroom-reagents/learning-center/technical-library/reagent-concentrations.html
+
+vol_l_ml <- vol_H2O_sample_ml + vol_H3PO4_added_ml # volume of water + acid in ml
+
+water_H3PO4_ratio <- vol_H2O_sample_ml / vol_H3PO4_added_ml    # ratio of concentrated H3PO4 (85 wt%) to water in DIC prep method
+dilution_factor_H3PO4 <- (1/(1+1*water_H3PO4_ratio)) # dilution factor of concentrated H3PO4 during acidification of water sample
+
+ci  <- 14.8 * dilution_factor_H3PO4 # concentration of total phosphate and its protonated forms in acidified water sample [kmol m^-3 aka mol/l]
+hi_H2PO4 <- 0.1025 # m^3kmol^-1 ion-specific parameter (schumpe 1993)
+hg_CO2 <- -0.0183 # m^3kmol^-1 gas-specific parameter (schumpe 1993)
+
+Hcc_CO2_lab_temp_and_ionic_strength <- Hcc_CO2_lab_temp_DI * 10^-((hi_H2PO4 + hg_CO2) * ci)
+```
+
+Calculate expected pCO$_2$ from µg CaCO$_3$ loaded
+```{r calc-pCO2-expected}
+MM_CaCO3 <- 100.0869 #g/mol
+
+linC <- linC %>% mutate(mol_CO2_total_expected = `mass_loaded [ug]` * 1e-6 / MM_CaCO3) # add column for total moles CO2 expected
+
+linC <- linC %>% mutate(mol_ratio_CO2_g_aq = (`vol_vial [ml]` - vol_l_ml) * 1e-3 / (vol_l_ml*1e-3 * Hcc_CO2_lab_temp_and_ionic_strength)) # add column for mole ratio of CO2 gas / aqueous
+
+linC <- linC %>% mutate(mol_CO2_g = mol_CO2_total_expected / (1+ (1/mol_ratio_CO2_g_aq))) # add column for total moles CO2 in gas phase
+
+linC <- linC %>% mutate(p_CO2_expected_bar = mol_CO2_g * R * lab_temp_K / ((`vol_vial [ml]` - vol_l_ml)*1e-3)) # add column for expected pCO2
+```
+
+### Re-plot calibration curve in terms of pCO$_2$
+
+```{r plot-calib-pCO2}
+calib_DIC_3  <- 
+  ggplot(linC, aes(x=p_CO2_expected_bar, y=amp44_t0)) +
+  geom_smooth(method="lm", color = "blue") +
+  geom_point(shape=21, fill="black", size = 2)+
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = linC$amp44_t0 ~ linC$p_CO2_expected_bar , parse = TRUE, rr.digits = 6, color = "blue")+
+   scale_x_continuous(name = latex2exp::TeX("pCO$_2$ expected $\\[$bar$\\]$"))+
+ scale_y_continuous(name = latex2exp::TeX("m/z 44 peak amplitude t$_0$ $\\[$mV$\\]$"))+
+theme_bw()
+
+calib_DIC_3 # show plot
+```
+
+Generate linear regression of calibration against pCO$_2$
+```{r regress-calib-pCO2}
+calib_fit_pCO2 <- lm(linC$amp44_t0 ~ linC$p_CO2_expected_bar) # make linear regression of m/z 44 amplitude at t0 vs. mass loaded
+
+calib_fit_summ_pCO2  <- summary(calib_fit_pCO2) # summarize regression statistics
+
+calib_fit_summ_pCO2 # print regression statistics
+```
+
+### Calculate pCO$_2$ of samples
+
+Filter for samples
+```{r filter-for-samples}
+samples <- filter(data, type_general=="sample") # filter for samples
+```
+
+### Apply calibration
+```{r apply-conc-calib}
+# use inverse.predict function from chemCal to predict X based on Y
+samples_calibrated <- samples %>% group_by(name) %>%  mutate(pCO2_bar = as.numeric(inverse.predict(object = calib_fit_pCO2, newdata = amp44_t0, alpha = 0.05)[1]))
+
+# use inverse.predict function from chemCal to calculate the 95% confidence interval for the prediction
+samples_calibrated <- samples_calibrated %>%  mutate(pCO2_bar_95_confidence = as.numeric(inverse.predict(object = calib_fit_pCO2, newdata = amp44_t0, alpha = 0.05)[2]))
+
+# summarize calibrated samples 
+samples_calibrated_summ <- samples_calibrated %>% group_by(name) %>% summarise(n = n(), `amp44_mean [mV] mean` = mean(`amp44_mean [mV]`), amp44_t0 = mean(amp44_t0), pCO2_bar = first(pCO2_bar), pCO2_bar_95_confidence = first(pCO2_bar_95_confidence), quantitatable = ifelse(any(quantitatable == FALSE) == TRUE, FALSE, TRUE), `vol_vial [ml]` = mean(`vol_vial [ml]`))
+
+samples_calibrated_summ %>% kable(digits = 6) # print
+```
+
+Now, just for demonstration purposes, convert mass CaCO$_3$ loaded to $c_{\sum\text{CO}_2}$ and re-plot. This is a simpler, more common, and slightly less exact/representative way to make such a calibration curve.
+```{r plot-calib-CaCO3}
+MM_CaCO3 <- 100.0869 #g/mol
+
+linC <- linC %>% mutate(mol_CO2_total_expected = `mass_loaded [ug]` * 1e-6 / MM_CaCO3) # add column for total moles CO2 expected
+
+linC <- linC %>% mutate(DIC_uM = mol_CO2_total_expected / (vol_H2O_sample_ml *1e-3) * 1e6) # dissolved inorganic carbon concentration of initial water sample by dividing total moles CO2 by volume of water
+
+calib_DIC_4  <- 
+  ggplot(linC, aes(x=DIC_uM, y=amp44_t0)) +
+  geom_smooth(method="lm", color = "blue") +
+  geom_point(shape=21, fill="black", size = 2)+
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = linC$amp44_t0 ~ linC$DIC_uM , parse = TRUE, rr.digits = 6, color = "blue")+
+ scale_x_continuous(name = latex2exp::TeX("estimated $\\textit{c}_{\\sum CO_2}$ $\\[$µmol$\\cdot$L$^{-1}\\]$"))+
+ scale_y_continuous(name = latex2exp::TeX("m/z 44 peak amplitude t$_0$ $\\[$mV$\\]$"))+
+  theme_bw()
+
+calib_DIC_4
+
+# make interactive plot
+calib_DIC_5  <- 
+  ggplot(linC, aes(x=DIC_uM, y=amp44_t0, label=id1))+
+  geom_point()+
+theme_bw()
+
+calib_DIC_5 %>% ggplotly()
+```
+
+### Calculate $c_{\sum\text{CO}_2}$ of samples
+```{r calc-DIC-conc}
+### for concentration
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_g = pCO2_bar * (`vol_vial [ml]` - vol_l_ml) * 1e-3 / (R * lab_temp_K)) # calculate moles CO2 in gas phase
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_aq = mol_CO2_g * vol_l_ml*1e-3 * Hcc_CO2_lab_temp_and_ionic_strength / ((`vol_vial [ml]` - vol_l_ml)*1e-3)) #calculated moles CO2 in aqueous phase
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_tot = mol_CO2_g + mol_CO2_aq) # sum aqueous and gaseous CO2
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(DIC_uM = mol_CO2_tot / (vol_H2O_sample_ml * 1e-3) * 1e6) # convert total moles CO2 to dissolved inorganic C concentration of initial water sample
+
+### for confidence interval
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_g_95_confidence = pCO2_bar_95_confidence * (`vol_vial [ml]` - vol_l_ml) * 1e-3 / (R * lab_temp_K)) # calculate moles CO2 in gas phase
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_aq_95_confidence = mol_CO2_g_95_confidence * vol_l_ml*1e-3 * Hcc_CO2_lab_temp_and_ionic_strength / ((`vol_vial [ml]` - vol_l_ml)*1e-3)) #calculated moles CO2 in aqueous phase
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(mol_CO2_tot_95_confidence = mol_CO2_g_95_confidence + mol_CO2_aq_95_confidence) # sum aqueous and gaseous CO2
+
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(DIC_uM_95_confidence = mol_CO2_tot_95_confidence / (vol_H2O_sample_ml * 1e-3) * 1e6) # convert total moles CO2 to dissolved inorganic C concentration of initial water sample
+
+# add column in which d13C is rounded to tenth of permil place
+samples_calibrated_summ <- samples_calibrated_summ %>% mutate(`DIC_uM rounded tens` = round(DIC_uM, -1))
+
+### clean and print
+samples_select <- samples_calibrated_summ %>% select(name, n, `amp44_mean [mV] mean`, amp44_t0, pCO2_bar, pCO2_bar_95_confidence, DIC_uM, DIC_uM_95_confidence, `DIC_uM rounded tens`, quantitatable) 
+
+samples_select %>% kable(caption = "DIC concentration from calibration of amp44 t0 vs. pCO2 expected")
+```
+
+Plot samples to check that their amplitude roughly makes sense given their calculated $c_{\sum\text{CO}_2}$. Note that on this plot, the standards' $c_{\sum\text{CO}_2}$ was calculated simply with the mass loaded, whereas the samples were calculated based on the pCO$_2$ calibration. The samples do plot as expected. It is re-assuring to see that one check sample (5 min He purge 190104 + 100 ul H3PO4 190104 + 1 ml boiled MilliQ 190104 + 194ug YULE) plots quite close to a standard of 198ug YULE that was prepared just prior to analysis.
+
+Dashed line = LOQ.
+
+```{r amp44-DIC-sample-stnd-check}
+LOQ_DIC_um <- as.numeric(samples_select %>% filter(name == "LOQ") %>% select(DIC_uM))
+
+amp44.DIC.sample.stnd.check <- ggplot(samples_calibrated_summ, aes(x=amp44_t0, y=DIC_uM, label=name, color = "samples")) +
+  geom_hline(yintercept = LOQ_DIC_um, linetype = "dashed", alpha = 0.3)+
+  geom_point()+
+  geom_point(data = linC, aes(x=amp44_t0, y=DIC_uM, label=file_id, color="standards")) +
+            scale_y_continuous(name = "DIC (µM)") +
+  scale_x_continuous(name = ("m/z 44 amplitude t0 (mV)"))+
+  theme_bw()
+
+amp44.DIC.sample.stnd.check %>% ggplotly()
+```
+
+# $\delta^{13}$C calibrations
+
+## Initial dataset checks, plots, and culling
+
+First round of culling looks at standard deviations of the stable isotope values of the individual peaks (typically there are 10 peaks, prior to previous culling for bad injects), and uses that information to identify analytical outliers or samples with problems or too few peaks. Often the "cutoff" of outliers tends to be sd of 0.075 - 0.1 permil.
+
+Make summary plots of reproducibility of isotopic values.
+
+```{r plot-summary-reproducibility-d13C}
+data <- data %>% filter(amp44_t0 >= S_A_LOQ) # filter for samples with signal greater than or equal LOQ for concentration
+
+sd.hist <- data %>% ggplot(aes(x=d13C.sd, fill = amp44_t0)) +
+  geom_histogram(binwidth=.01) +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+sd.values <- data %>% filter(!is.na(d13C.sd)) %>% ggplot(aes(x=as.character(Analysis), y=d13C.sd, label=id1, color = `amp44_mean [mV]`)) +
+  geom_point() +
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, vjust = .5))+
+  scale_color_gradientn(colours = c("red", "blue", "blue"), values = c(0, 0.2, 1))
+
+sd.v.amp44 <- data %>% filter(!is.na(d13C.sd)) %>% ggplot(aes(x=`amp44_mean [mV]`, y=d13C.sd, fill=factor(num.peaks), label=file_id)) +
+  geom_point(size=3, shape=21)+
+  theme_bw()+
+  scale_fill_discrete(name="# peaks")
+
+sd.hist
+sd.values %>% ggplotly()
+sd.v.amp44 %>% ggplotly()
+```
+
+Remove any data points that did not replicate within uncertainty for the individual peaks, redo plots - creates a "culled data" file that shows samples and standards that shouldn't be used.
+
+```{r cull-bad-reproducibility-d13C}
+d13C.sd.cutoff <- 0.075 # set a standard deviation on d13C measurements between peaks that you deem acceptable
+
+culled.data <- subset(data, d13C.sd>d13C.sd.cutoff)  # subset data that don't meet the acceptability threshold for d13C standard deviation
+wo.culled <- subset(data, d13C.sd<d13C.sd.cutoff) # subset data that do meet the threshold
+
+#print
+culled.data
+```
+
+Plot yields of  the standards, using interactive plots. Use this to cull more standards if need be, by looking for statistical outliers that coincide with yield problems. Note: LSVEC is LiCO$_3$, whereas the other standards are CaCO$_3$, so it is expected that LSVEC has a different ratio of amplitude to mass loaded. Thus, all plotted standards look fine in this analytical session. 
+
+```{r plot-yields-d13C, fig.height=8, fig.width=10}
+# make a data frame of standards
+stds1 <- subset(wo.culled, type_general == "standard")
+
+# name standards. omit flush gas (CU sequoia)
+stds1 <- stds1 %>% mutate(standard = case_when(
+  str_detect(id1, "YULE") == TRUE ~ "YULE",
+  str_detect(id1, "HIS") == TRUE ~ "HIS",
+  str_detect(id1, "LSVEC") == TRUE ~ "LSVEC"
+)) %>% filter(!is.na(standard))
+
+yield.stds <- ggplot(stds1, aes(x = `mass_loaded [ug]`, y = `amp44_mean [mV]`, label=file_id)) +
+  geom_point(aes(color=standard)) +
+  theme_bw()
+
+# note: LSVEC is LiCO3, not CaCO3, so it is expected to be above the yield of the other standards
+
+d13C.stds <- 
+  ggplot(stds1, aes(label=file_id)) +
+  geom_point(shape=21, mapping = aes(x =`amp44_mean [mV]`, y = `d13C.measured [permil]`, fill = standard)) +
+  facet_grid(standard ~ ., scales = "free") +
+  theme_bw()
+
+ggplotly(yield.stds)
+ggplotly(d13C.stds )
+```
+
+```{r cull-yield-outliers, fig.height=8, fig.width=10}
+# adjust next line only: change #'s in stds.to.cull to reflect the analysis #'s that need to be culled, add analysis #'s as needed and rerun after looking at the new plots
+stds.to.cull <- c(16609) # analyses with yield problem and/or significant outlier in d13C
+                    # bad yield for analysis 16609
+
+stds.culled <- filter(stds1, Analysis %in% stds.to.cull)
+culled.data<-bind_rows(culled.data, stds.culled)
+
+stds2 <- filter(stds1, !Analysis %in% stds.to.cull)
+wo.culled <- filter(wo.culled, !Analysis %in% stds.to.cull)
+
+# omit LSVEC from plot to focus on CaCO3 standards
+yield.stds2<- stds2 %>% filter(standard != "LSVEC") %>% ggplot(aes(x = `mass_loaded [ug]`, y = `amp44_mean [mV]`, label=file_id)) +
+  stat_smooth(method="lm") +
+  geom_point(aes(color=standard)) +
+  theme_bw()
+
+d13C.stds2 <- 
+  ggplot(stds2, aes(label=Analysis)) +
+  geom_point(shape=21, mapping = aes(x = `amp44_mean [mV]`, y = `d13C.measured [permil]`, fill=standard)) +
+  facet_grid(standard ~ ., scales = "free") +
+  theme_bw()
+
+ggplotly(yield.stds2)
+ggplotly(d13C.stds2)
+```
+
+## Isotope standard values
+
+### Load isotope standards
+
+```{r load-isotope-stnds}
+standards <- 
+  tibble::tribble(
+    ~name,           ~true_d13C,
+    "HIS",			     -4.80,
+    "LSVEC",			   -46.6,
+    "YULE",		       -3.12
+  ) %>% 
+  mutate(
+    true_d13C = iso_double_with_units(true_d13C, "permil")
+  )
+standards %>% knitr::kable(digits = 2)
+```
+
+### Add isotope standards
+```{r add-isotope-stnds}
+wo.culled_w_stds <- 
+  wo.culled %>% 
+  iso_add_standards(stds = standards, match_by = c(name)) 
+```
+
+## Generate a calibration with linear regression
+
+```{r generate-calib-d13C}
+calibs <- wo.culled_w_stds %>%
+  # prepare for calibration
+  iso_prepare_for_calibration() %>% 
+  # run calibrations
+  iso_generate_calibration(
+    model = c(
+      # reference scale correction
+      delta_only = lm(`d13C.measured [permil]` ~ true_d13C),
+      # multivariate with delta and amplitude
+      delta_and_ampl = lm(`d13C.measured [permil]` ~ true_d13C + `amp44_mean [mV]`),
+      # + the delta and amplitude cross term
+      delta_cross_ampl = lm(`d13C.measured [permil]` ~ true_d13C * `amp44_mean [mV]`),
+      # multivariate with delta and the datetime (i.e. checking for temporal drift)
+      delta_and_time = lm(`d13C.measured [permil]` ~ true_d13C + file_datetime),
+      delta_cross_time = lm(`d13C.measured [permil]` ~ true_d13C * file_datetime),
+      # multivariate with delta, amplitude and datetime
+      delta_and_ampl_and_time = lm(`d13C.measured [permil]` ~ true_d13C + `amp44_mean [mV]` + file_datetime),
+      # multivariate with delta cross amplitude and datetime
+      delta_cross_ampl_and_time = lm(`d13C.measured [permil]` ~ true_d13C * `amp44_mean [mV]` + file_datetime)
+    ), 
+    # specify which peaks to include in the calibration, here:
+    # - all std_peaks (this filter should always be included!)
+    use_in_calib = is_std_peak
+  ) 
+```
+
+### Coefficients
+
+```{r calib-coeffs, fig.width=7, fig.height=8}
+# look at coefficients and summary
+calibs %>% 
+  # unnest calibration parameters
+  iso_get_calibration_parameters(
+    select_from_coefs = 
+      c(term, estimate, SE = std.error, signif),
+    select_from_summary = 
+      c(fit_R2 = adj.r.squared, fit_RMSD = deviance, residual_df = df.residual)) %>%
+  arrange(term) %>% 
+  knitr::kable(digits = 4)
+```
+
+### Visualize Calibration Parameters
+
+The visualization of the calibration parameters reveals that as expected the scale contraction and amplitude calibrations are highly statistically relevant (`***` = p.value < 0.001). Dt (drift) is also statistically relevant (`*` = p.value < 0.05).
+
+```{r visualize-calib-params, fig.width = 8, fig.height = 11, message=FALSE}
+calibs %>% iso_plot_calibration_parameters()
+```
+
+## Apply global calibration
+```{r apply-global-calib, cache=TRUE}
+calibs_applied <- 
+  calibs %>% 
+  # which calibration to use? can include multiple if desired to see the result
+  # in this case, the amplitude- and time-conscious calibrations are applied
+  filter(calib == "delta_and_ampl_and_time") %>% 
+  # apply calibration indication what should be calculated
+  iso_apply_calibration(true_d13C, calculate_error = TRUE)
+# calibration ranges
+calibs_with_ranges <-
+  calibs_applied %>% 
+  # evaluate calibration range for the measured amplitude and predicted d13C
+  iso_evaluate_calibration_range(`amp44_mean [mV]`, true_d13C_pred) 
+# show calibration ranges
+calibs_with_ranges %>% 
+  iso_get_calibration_range() %>% 
+  iso_remove_list_columns() %>% 
+  knitr::kable(d = 2)
+# create calibrated peak table
+peak_table_calibrated <- calibs_with_ranges %>% 
+  iso_get_calibration_data()
+```
+
+# Evaluation of isotope calibration
+
+## Overview
+
+All reported samples are within calibrated range.
+```{r plot-calib-range, fig.width=7, fig.height=9}
+# replicate earlier overview plot but now with the calibrated delta values
+# and with a highlight of the calibration ranges and which points are in range
+peak_table_calibrated %>% 
+  # visualize with convenience function iso_plot_data
+  iso_plot_data(
+    # choose x and y (multiple y possible)
+    x = `amp44_mean [mV]`, y = true_d13C_pred,
+    # choose aesthetics
+    color = in_range, shape = is_std_peak, size = 3,
+    # decide what geoms to include
+    points = TRUE
+  ) %>% 
+  # highlight calibration range
+  iso_mark_calibration_range() +
+  # legend
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+## Summary
+
+```{r summary-d13C}
+# generate data summary
+peak_data <- 
+  peak_table_calibrated
+
+# summarize replicates
+peak_data_summary <- 
+  peak_data %>% 
+  # summarize for each sample and compound
+  group_by(name) %>% 
+  iso_summarize_data_table(`amp44_mean [mV]`, true_d13C_pred, true_d13C_pred_se) %>% select(-`true_d13C_pred_se sd`)
+
+# add column in which d13C is rounded to hundredth of permil place
+peak_data_summary <- peak_data_summary %>% mutate(`d13C rounded hundredth` = round(`true_d13C_pred mean`, 2))
+
+# print
+peak_data_summary %>% iso_make_units_explicit() %>% knitr::kable(d = 2)
+```
+
+```{r summary-d13C-conc}
+# add data about DIC concentration to d13C-calibrated samples
+samples_summ_w_concs <- peak_data_summary %>% left_join(samples_select %>% select(amp44_t0, DIC_uM, DIC_uM_95_confidence, `DIC_uM rounded tens`, quantitatable, name), by = "name")
+
+# add data about LOQ and samples below it
+samples_summ_w_concs_w_LOQ <- union(samples_summ_w_concs, peak_data_summary %>% full_join(samples_select %>% select(n, amp44_t0, `amp44_mean [mV] mean`, DIC_uM, DIC_uM_95_confidence, `DIC_uM rounded tens`, quantitatable, name)))
+
+# remove flush gas from data output
+samples_summ_w_concs_w_LOQ <- samples_summ_w_concs_w_LOQ %>% filter(name!= "CU Sequoia flush gas")
+
+# arrange summary data by column describing whether it was above limit of quanitation
+samples_summ_w_concs_w_LOQ <- samples_summ_w_concs_w_LOQ %>% arrange(-quantitatable)
+
+# print
+samples_summ_w_concs_w_LOQ %>% iso_make_units_explicit() %>% knitr::kable(d = 2)
+```
+
+# Export
+
+Save data to xlsx spreadsheet.
+```{r export}
+# export the global calibration with all its information and data to Excel
+peak_table_calibrated %>% 
+  iso_export_calibration_to_excel(
+    filepath = format(Sys.Date(), "data_output/%Y%m%d_190208_DBN_DIC_calibrated.xlsx"),
+    # include data summary as an additional useful tab
+    `data summary` = samples_summ_w_concs_w_LOQ
+  )
+```
