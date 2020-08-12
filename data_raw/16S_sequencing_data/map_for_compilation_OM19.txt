@@ -1,0 +1,10 @@
+sample_id	barcode_sequence	forward_linker_primer_sequence	reverse_primer_sequence	sample_type	nucleic_acid_type	sampling_site	year_sampled	month_sampled	day_sampled	depth_fluid_intake_mbct	notes	sampling_method	upper_packer_inflated	upper_packer_depth_mbct	lower_packer_inflated	lower_packer_depth_mbct	well_depth_mbgl	casing_extent_mbct	casing_height_magl	screened_interval_mbct	depth_to_water_mbct
+14NP	NA	NA	NA	groundwater	DNA	NSHQ14	2019	1	18	85	no purge (NP)	open borehole pumping - Grundfos submersible	NA	NA	NA	NA	304.0	5.8	1.0	open below casing	NA
+A108	NA	NA	NA	groundwater	DNA	BA1A	2019	1	16	132	NA	packer - Solexperts	TRUE	108	TRUE	132	400.0	22.0	1.0	open below casing	17.25
+A30	NA	NA	NA	groundwater	DNA	BA1A	2019	1	14	30	NA	packer - Solexperts	FALSE	NA	TRUE	30	400.0	22.0	1.0	open below casing	17.25
+A41	NA	NA	NA	groundwater	DNA	BA1A	2019	1	16	65	NA	packer - Solexperts	TRUE	41	TRUE	65	400.0	22.0	1.0	open below casing	17.25
+B71	NA	NA	NA	groundwater	DNA	WAB71	2019	1	9	80	Water was intermittently clear and highly sediment-rich. Particulate filters loaded with much sediment.	open borehole pumping - Grundfos submersible	NA	NA	NA	NA	136.5	136.5	1.0	128-131	8.3
+Blank	NA	NA	NA	extraction control	DNA	NA	2019	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA	NA
+D102	NA	NA	NA	groundwater	DNA	BA1D	2019	1	13	132	NA	packer - Solexperts	TRUE	102	TRUE	132	400.0	26.0	1.0	open below casing	17.03
+D45	NA	NA	NA	groundwater	DNA	BA1D	2019	1	11	75	NA	packer - Solexperts	TRUE	45	TRUE	75	400.0	26.0	1.0	open below casing	17.03
+B56	NA	NA	NA	groundwater	DNA	WAB56	2019	1	13	80	"Pumped well down too far on Jan 12 (pumping 10:30 - 12:00 at 20 lpm), had to let recover and sample the next day. On Jan 13, first water muddy; water cleared up, but was highly gassy."	open borehole pumping - Grundfos submersible	NA	NA	NA	NA	106.0	106.0	1.0	44039.00	7.62
