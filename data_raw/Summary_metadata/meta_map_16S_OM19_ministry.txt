@@ -1,0 +1,4 @@
+#SampleID	sample_ID	Description	well
+14NP	14NP	sample	NSHQ14NP
+Blank	Blank	blank	NA
+B71	B71	sample	WAB71
