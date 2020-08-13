@@ -540,7 +540,7 @@ leg_fill_plot
 # C$_1$ / (C$_2$ + C$_3$) vs. $\delta^{13}\text{C}_{\text{CH}_4}$ ("Bernard") Plot
 ## Prepare data
 Prepare Oman well data
-```{r get-Oman-C1-C1-C3-data}
+```{r get-Oman-C1-C2-C3-data}
 # select samples with quantifiable C2H6
 data_C1_C2_C3 <- data %>% filter(!is.na(C2H6_uM)) %>%  select(sampling_site, notes, year_sampled, depth_fluid_intake_mbct, water_type, CH4_uM, CH4_was_measured, CH4_LQ_uM, CH4_unc_uM, C2H6_uM, C2H6_was_measured, C2H6_LQ_uM, C2H6_unc_uM, C3H8_uM, C3H8_was_measured, C3H8_LQ_uM, C3H8_unc_uM,
 CH4_d13C_permil_VPDB_CUB, CH4_d13C_unc_permil_CUB) # select relevant data for CH4, C2H6, C3H8
@@ -560,7 +560,7 @@ data_C1_C2_C3
 ```
 
 Get literature data
-```{r get-lit-C1-C1-C3-data}
+```{r get-lit-C1-C2-C3-data}
 # select samples with quantifiable C2H6
 data_C1_C2_C3_lit <- data_literature %>% filter(!is.na(C2H6_conc)) %>%  select(site, sample_type, CH4_conc, C2H6_conc, C3H8_conc,
 CH4_d13C_permil_VPDB) # select relevant data for CH4, C2H6, C3H8
@@ -881,14 +881,81 @@ leg_color_plot <- plot_grid(leg_color
 leg_color_plot
 ```
 
-# Fraction modern facet grid plot
+# CH$_4$ Fraction modern facet grid plot
 
 ## Prepare data
-```{r get-alkane-d13C-data}
+```{r get-14CH4-data}
 # create data frame of CH4, C2H6, and C3H8 d13C data
-data_alkanes_F14C <- data %>% filter(!is.na(C2H6_d13C_permil_VPDB)) %>% select(sampling_site, year_sampled, depth_fluid_intake_mbct, CH4_d13C_permil_VPDB_CUB, CH4_d13C_unc_permil_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_unc_permil_MIT, CH4_d13C_permil_VPDB_ISOTECH, CH4_d13C_unc_permil_ISOTECH, C2H6_d13C_permil_VPDB, C2H6_d13C_unc_permil, C3H8_d13C_permil_VPDB, C3H8_d13C_unc_permil)
+data_14CH4 <- data %>% filter(!is.na(CH4_Fm_UCIAMS)) %>% select(sampling_site, year_sampled, notes, CH4_Fm_UCIAMS, CH4_Fm_unc_UCIAMS, CH4_Fm_NOSAMS, CH4_Fm_unc_NOSAMS, CH4_d13C_permil_VPDB_CUB, CH4_d13C_unc_permil_CUB, CH4_d13C_permil_VPDB_ISOTECH, CH4_d13C_unc_permil_ISOTECH)
 
 # print
-data_alkanes_d13C
+data_14CH4
 ```
+
+```{r}
+(data_14CH4_NSHQ14 <- data_14CH4 %>% filter(sampling_site == "NSHQ14"))
+```
+
+```{r}
+data_14CH4_NSHQ14_longer <- data_14CH4_NSHQ14 %>%
+  # combine F14C data from different labs: UCIAMS and NOSAMS
+  pivot_longer(c(CH4_Fm_UCIAMS, CH4_Fm_NOSAMS), names_to = "parameter", values_to = "CH4_Fm", values_drop_na = TRUE) %>% 
+  # rename "parameter" column (e.g. "CH4_Fm_UCIAMS") to the laboratory name
+  mutate(lab = case_when(
+str_detect(parameter, "UCIAMS") == TRUE ~ "INSTAAR/UCIAMS",
+str_detect(parameter, "NOSAMS") == TRUE ~ "Isotech/NOSAMS"
+))  %>%
+  # drop "parameter column
+  select(-parameter) %>% 
+  # assign Fm uncertainties based on lab
+  mutate(CH4_Fm_unc = if_else(lab == "Isotech/NOSAMS", CH4_Fm_unc_NOSAMS, CH4_Fm_unc_UCIAMS)) %>% 
+  select(-CH4_Fm_unc_NOSAMS, -CH4_Fm_unc_UCIAMS) %>%
+  # relocate lab column after CH4_Fm_unc_UCIAMS
+  relocate(lab, .before = CH4_Fm) %>% 
+  # assign CH4 d13C based on lab
+  mutate(CH4_d13C_permil_VPDB = if_else(lab == "Isotech/NOSAMS", CH4_d13C_permil_VPDB_ISOTECH, CH4_d13C_permil_VPDB_CUB)) %>% 
+  select(-CH4_d13C_permil_VPDB_ISOTECH, -CH4_d13C_permil_VPDB_CUB) %>%
+  # assign CH4 d13C uncertainty based on lab
+    mutate(CH4_d13C_unc_permil = if_else(lab == "Isotech/NOSAMS", CH4_d13C_unc_permil_ISOTECH, CH4_d13C_unc_permil_CUB)) %>% 
+  select(-CH4_d13C_unc_permil_ISOTECH, -CH4_d13C_unc_permil_CUB)
+
+data_14CH4_NSHQ14_longer
+```
+
+```{r}
+# create plot
+data_14CH4_NSHQ14_longer %>% ggplot(
+  aes(
+    x = CH4_Fm,
+    xmin = CH4_Fm - CH4_Fm_unc,
+    xmax = CH4_Fm + CH4_Fm_unc,
+    y = CH4_d13C_permil_VPDB,
+    ymin = CH4_d13C_permil_VPDB - CH4_d13C_unc_permil,
+    ymax = CH4_d13C_permil_VPDB + CH4_d13C_unc_permil,
+    shape = as.character(year_sampled),
+    color = lab,
+    label = notes
+  )
+) +
+  
+  geom_linerange(orientation = "x") +
+  geom_linerange(orientation = "y") +
+  
+  # points
+  geom_point() +
+  
+  geom_label(nudge_x = 0.045, ) +
+  
+  scale_x_continuous(name = "Fraction modern", limits = c(0, 0.32), expand = c(0,0)) +
+  
+  theme_bw()
+```
+
+
+
+```{r}
+data_C1_C2_C3 %>% filter(sampling_site == "NSHQ14") %>% select(sampling_site, year_sampled, C1_over_C2_plus_C3, notes)
+```
+
+
 
