@@ -86,7 +86,7 @@ meta_map_OM19 <- read_delim("data_raw/16S_sequencing_data/map_for_compilation_OM
 # Tidy up the data, concatenate taxa levels, and add metadata
 
 ```{r tidy-data}
-ampli_data_OM19 <- ampli_tidy_dada2(seqtab_OM19, taxtab_OM19) %>% ampli_concat_tax() %>% ampli_join_metadata_map(meta_map_OM19)
+ampli_data_OM19 <- ampli_tidy_dada2(seqtab_OM19, taxtab_OM19) %>% ampli_concat_tax() %>% ampli_concat_tax(tax_levels = 6, concat_tax_col_name = taxonomy_6) %>% ampli_join_metadata_map(meta_map_OM19)
 ```
 
 # Initial data examination
@@ -214,6 +214,77 @@ OM19_heat +
     legend.box.spacing = unit(2, "pt"),
     legend.title = element_text(size = 7),
     plot.margin = margin(2,0,1,1)
+        )
+```
+
+```{r OM19-top7-heat-round-tax-6, fig.width=7, fig.height=1.9}
+OM19_heat_tax_6 <- ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(x_sample_group_col = sampling_site, text_label_scalar = 100, text_label_decimal_places = 0, text_label_threshold = 0.01, text_label_zero = "n.r.", text_label_threshold_round_priority = "round", top_n = 7, y_taxa_arrangement = "abund", y_taxa_col = taxonomy_6)
+
+OM19_heat_tax_6 +
+  # plot geometry
+  geom_text(parse = FALSE, size = 2.8) +
+  
+  # plot styling
+  scale_fill_gradient(name = "Read relative\nabundance /\n[%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
+  scale_x_discrete(name = NULL, expand = c(0,0)) +
+  scale_y_discrete(name = NULL, expand = c(0,0)) +
+
+  theme_bw(base_size = 9) +
+
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    legend.box.spacing = unit(2, "pt"),
+    legend.title = element_text(size = 7),
+    plot.margin = margin(2,0,1,1)
+        )
+```
+
+```{r OM19-top7-heat-round-tax-6-names-tbl}
+OM19_heat_tax_6_names_tbl <- ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(x_sample_group_col = sampling_site, text_label_scalar = 100, text_label_decimal_places = 0, text_label_threshold = 0.01, text_label_zero = "n.r.", text_label_threshold_round_priority = "round", top_n = 7, y_taxa_arrangement = "abund", y_taxa_col = taxonomy_6, return_plot_data_tbl = TRUE)
+
+OM19_heat_tax_6_names_tbl
+```
+
+```{r OM18-CH4-heat-tbl-add-tax-short}
+OM19_heat_tax_6_names_tbl_edit <- OM19_heat_tax_6_names_tbl  %>% mutate(tax_short = case_when(
+  taxonomy_6 == "k__Archaea; p__Euryarchaeota; c__Methanobacteria; o__Methanobacteriales; f__Methanobacteriaceae; g__Methanobacterium" ~ "g. $\\textit{Methanobacterium}$",
+  taxonomy_6 == "k__Bacteria; p__Acetothermia; c__Acetothermiia; o__NA; f__NA; g__NA" ~ "c. Acetothermiia",
+  taxonomy_6 == "k__Bacteria; p__Deinococcota; c__Deinococci; o__Thermales; f__Thermaceae; g__Meiothermus" ~ "g. $\\textit{Meiothermus}$",
+  taxonomy_6 == "k__Bacteria; p__Nitrospirota; c__Thermodesulfovibrionia; o__NA; f__NA; g__NA" ~ "c. Thermodesulfovibrionia",
+  taxonomy_6 == "k__Bacteria; p__Proteobacteria; c__Gammaproteobacteria; o__Burkholderiales; f__Comamonadaceae; g__Brachymonas" ~ "g. $\\textit{Brachymonas}$",
+  taxonomy_6 == "k__Bacteria; p__Proteobacteria; c__Gammaproteobacteria; o__Burkholderiales; f__Comamonadaceae; g__Hydrogenophaga" ~ "g. $\\textit{Hydrogenophaga}$",
+  taxonomy_6 == "k__Bacteria; p__Proteobacteria; c__Gammaproteobacteria; o__Xanthomonadales; f__Xanthomonadaceae; g__Silanimonas" ~ "g. $\\textit{Silanimonas}$",
+  taxonomy_6 == "Other taxa" ~ "Other taxa"
+))
+
+OM19_heat_tax_6_names_tbl_edit
+```
+
+```{r OM19-top7-heat-round-tax-6-short-name, fig.width = 3.42, fig.height=2.5}
+OM19_heat_tax_6 <- ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(x_sample_group_col = sampling_site, text_label_scalar = 100, text_label_decimal_places = 0, text_label_threshold = 0.01, text_label_zero = "n.r.", text_label_threshold_round_priority = "round", top_n = 7, y_taxa_arrangement = "abund", y_taxa_col = taxonomy_6, custom_taxa_names_tbl = OM19_heat_tax_6_names_tbl_edit, custom_taxa_names_col = tax_short,)
+
+OM19_heat_tax_6 +
+  # plot geometry
+  geom_text(parse = FALSE) +
+  
+  # plot styling
+  scale_fill_gradient(name = "Read relative\nabundance /\n[%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
+  scale_x_discrete(name = "Well", expand = c(0,0)) +
+  scale_y_discrete(name = "Deepest taxonomic assignment\n(maximum of genus)", expand = c(0,0), labels = TeX) +
+
+  theme_bw(base_size = 10) +
+
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    legend.box.spacing = unit(0, "pt"),
+    legend.box.margin = margin(1,1,1,1),
+    plot.margin = margin(2,-5,1,1),
+    legend.title = element_text(size = 9)
         )
 ```
 
