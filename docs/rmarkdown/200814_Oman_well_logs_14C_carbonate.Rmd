@@ -405,7 +405,7 @@ BA3A_NSHQ14_profile_longer_Eh_T_P <- BA3A_NSHQ14_profile_longer_Eh_T_P %>%
   mutate(
     parameter = case_when(
         parameter == "Eh_mV" ~ "Measured",
-        parameter == "H2O_H2_limit_Eh_f_T_P_mV" ~ "Stability limit of water with respect to molecular hydrogen as a function of temperature, pressure, and pH"
+        parameter == "H2O_H2_limit_Eh_f_T_P_mV" ~ "Stability limit of water with respect to molecular hydrogen\nas a function of measured temperature, pressure, and pH"
     )
   )
 ```
@@ -415,7 +415,7 @@ plot_BA3A_NSHQ14_Eh <- BA3A_NSHQ14_profile_longer_Eh_T_P  %>% ggplot(aes(x = dep
   geom_line(aes(y = Eh_mV, color = parameter))+
   scale_x_reverse(name = "Depth / [m]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
   scale_y_continuous(name = "Eh / [mV]")+
-  scale_color_manual(name = "Parameter", values = c("Measured" = "black", "Stability limit of water with respect to molecular hydrogen as a function of T and P" = "#D55E00")) +
+  scale_color_manual(name = "Parameter", values = c("Measured" = "black", "Stability limit of water with respect to molecular hydrogen\nas a function of measured temperature, pressure, and pH" = "#D55E00")) +
   facet_grid(cols = vars(sampling_site), scales = "free") +
   coord_flip()+
   theme_bw()+
