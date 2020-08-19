@@ -1,0 +1,241 @@
+---
+title: "Oman 2019 16S rRNA gene amplicon sequencing data processing"
+output:
+  html_document:
+    css: stylesheet.css
+    fig_caption: yes
+    number_sections: no
+    toc: yes
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    df_print: paged
+subtitle: "Source file: OM19_16S_processing.Rmd"
+author: "Daniel Nothaft"
+editor_options:
+  chunk_output_type: inline
+date: "`r Sys.Date()`"
+---
+
+# Setup
+
+Set knitting options
+```{r knitting-options}
+# global knitting options for automatic saving of all plots as .png and .pdf. Also sets cache directory.
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("fig_output/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input()))),
+  cache.path = file.path("cache/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input())))
+)
+```
+
+```{r setup}
+library(tidyverse)
+library(rlang)
+library(glue)
+library(latex2exp)
+library(scales)
+```
+
+```{r source}
+# source all relevant scripting files
+source(file.path("scripts", "ampliverse_05.R"))
+source(file.path("scripts", "plotting_functions.R"))
+```
+
+# Load data
+Load DADA2 output data
+```{r load-dada2-output}
+# taxa and sequence tables obtained from https://github.com/danote/Samail_16S_compilation
+seqtab_OM19 <- read_rds("data_raw/16S_sequencing_data/seqtab_nochim_OM19_processed_20200803.rds")
+taxtab_OM19 <- read_rds("data_raw/16S_sequencing_data/taxa_OM19_processed_20200803.rds")
+```
+
+Load metadata
+
+```{r load-metadata, warning = FALSE}
+meta_map_OM19 <- read_delim("data_raw/16S_sequencing_data/map_for_compilation_OM19.txt", delim = "\t",
+                            col_types = cols(
+  sample_id = col_character(),
+  barcode_sequence = col_character(),
+  forward_linker_primer_sequence = col_character(),
+  reverse_primer_sequence = col_character(),
+  sample_type = col_character(),
+  nucleic_acid_type = col_character(),
+  sampling_site = col_character(),
+  year_sampled = col_double(),
+  month_sampled = col_double(),
+  day_sampled = col_double(),
+  depth_fluid_intake_mbct = col_double(),
+  notes = col_character(),
+  sampling_method = col_character(),
+  upper_packer_inflated = col_logical(),
+  upper_packer_depth_mbct = col_double(),
+  lower_packer_inflated = col_logical(),
+  lower_packer_depth_mbct = col_double(),
+  well_depth_mbgl = col_double(),
+  casing_extent_mbct = col_double(),
+  casing_height_magl = col_double(),
+  screened_interval_mbct = col_character(),
+  depth_to_water_mbct = col_double()
+)
+                            ) %>% select(1:22)
+```
+
+# Tidy up the data, concatenate taxa levels, and add metadata
+
+```{r tidy-data}
+ampli_data_OM19 <- ampli_tidy_dada2(seqtab_OM19, taxtab_OM19) %>% ampli_concat_tax() %>% ampli_join_metadata_map(meta_map_OM19)
+```
+
+# Initial data examination
+
+## Read counts, full dataset
+
+```{r initial-data-exam}
+ampli_data_OM19_sum <- ampli_data_OM19 %>% ampli_tally_reads(c("year_sampled","sample_type"))
+
+# sort by read counts
+ampli_data_OM19_sum %>% arrange(desc(reads_sum))
+
+# generate summary stats of read counts
+summary(ampli_data_OM19_sum %>% select(reads_sum))
+```
+
+Plot read counts
+
+Oman groundwater samples have significantly higher read counts than extraction or PCR controls, which is good.
+```{r plot-read-counts}
+plot_reads_sums_1 <- ampli_data_OM19_sum %>% ggplot(aes(
+  x = fct_reorder(sample_id, desc(reads_sum)),
+  y = reads_sum,
+  fill = sample_type
+)) +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(name = "Reads") +
+  scale_x_discrete(name = "Sample ID") +
+  scale_fill_discrete(name = "Sample type") +
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1),
+    legend.position = "bottom"
+  )
+
+plot_reads_sums_1
+```
+# Focus on data of interest
+## Filter for only desired samples
+
+```{r filter-for-interesting-data, warning = FALSE}
+# define sample set ID's
+samples_to_keep <- c("14NP", "B71")
+
+# keep just those samples
+ampli_data_OM19_focus_samples <- ampli_data_OM19 %>% ampli_filter_strings(col_to_filter = sample_id, strings_to_filter = samples_to_keep, detection_method = "complete", action = "keep")  %>% 
+  # remove taxa with zero reads (messes up plotting later if kept)
+  ampli_rm_0_read_taxa()
+```
+
+
+## Filter out unwanted taxa
+Filter out mitochondria, chloroplasts, eukaryotes, and sequences not assigned taxonomy at the the domain level
+
+```{r rm-unwanted-taxa-OM17-18-19}
+ampli_data_OM19_focus_samples_taxa_filtered <- ampli_data_OM19_focus_samples %>% ampli_filter_strings(col_to_filter = taxonomy, strings_to_filter =   c("Chloroplast", "Mitochondria", "Eukaryota", "k__NA"), detection_method = "substring", action = "remove")
+```
+
+## Read counts, filtered dataset
+
+Tally reads per sample
+
+```{r tally-reads-OM17-18-19}
+ampli_data_OM19_focus_samples_taxa_filtered_sum <- ampli_data_OM19_focus_samples_taxa_filtered %>% ampli_tally_reads(c("year_sampled","sample_type"))
+
+# sort by read counts
+ampli_data_OM19_focus_samples_taxa_filtered_sum %>% arrange(desc(reads_sum))
+
+# generate summary stats of read counts
+summary(ampli_data_OM19_focus_samples_taxa_filtered_sum %>% select(reads_sum))
+```
+
+Plot read counts
+```{r plot-read-counts-filt}
+plot_reads_sums_2 <- ampli_data_OM19_focus_samples_taxa_filtered_sum %>% ggplot(aes(
+  x = fct_reorder(sample_id, desc(reads_sum)),
+  y = reads_sum,
+  label = reads_sum
+)) +
+  geom_bar(stat = "identity") +
+  geom_text(nudge_y = 1200) +
+  scale_x_discrete(name = "Sample ID") +
+  scale_y_continuous(name = "Reads") +
+  theme_bw()+
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = .5, hjust = 1),
+    legend.position = "bottom",
+    panel.grid = element_blank()
+  )
+
+plot_reads_sums_2
+```
+
+# Calculate relative abundances
+```{r cal-rel-abund-OM19}
+ampli_data_OM19_focus_samples_taxa_filtered <- ampli_data_OM19_focus_samples_taxa_filtered %>% ampli_calc_rel_abund()
+
+ampli_data_OM19_focus_samples_taxa_filtered %>% head()
+```
+
+Check that relative abundances add up to 1, as expected
+```{r check-rel-abund}
+ampli_data_OM19_focus_samples_taxa_filtered %>% group_by(sample_id) %>% summarise(rel_abund_sum = sum(rel_abund), .groups = "drop") %>%  summary()
+```
+# Heat map, full dataset
+
+```{r OM19-top10-heat-round, fig.width=7, fig.height=1.9}
+OM19_heat <- ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(x_sample_group_col = sampling_site, text_label_scalar = 100, text_label_decimal_places = 0, text_label_threshold = 0.01, text_label_zero = "n.r.", text_label_threshold_round_priority = "round", top_n = 10, y_taxa_arrangement = "abund")
+
+OM19_heat +
+  # plot geometry
+  geom_text(parse = FALSE, size = 2.8) +
+  
+  # plot styling
+  scale_fill_gradient(name = "Read relative\nabundance /\n[%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
+  scale_x_discrete(name = NULL, expand = c(0,0)) +
+  scale_y_discrete(name = NULL, expand = c(0,0)) +
+
+  theme_bw(base_size = 8.124) +
+
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank(),
+    legend.box.spacing = unit(2, "pt"),
+    legend.title = element_text(size = 7),
+    plot.margin = margin(2,0,1,1)
+        )
+```
+
+# OM19 CH4 taxa
+
+```{r OM19-simple-CH4-heat-sci, fig.width=7, fig.height=1.5}
+CH4_taxa <- c("Methanobacteria", "Methanomicrobia", "Methanopyrales", "Methanocellales", "Methanoplasmatales", "Methanosarcinales", "Methanomassiliicocc", "Methylococc", "Methylocystis", "Methylosinus", "Methylocella", "Methylocapsa", "Methylacidiphil", "Methylomirabilis", "ANME")
+
+ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(x_sample_group_col = sampling_site, taxa_selection_method = "custom_taxa_char_vector", custom_taxa_char_vector = CH4_taxa, plot_other_taxa_bin = FALSE, y_taxa_arrangement = "alpha", text_label_scalar = 100, text_label_decimal_places = 1, text_label_format = "scientific") +
+  # plot geometry
+  geom_text(parse = TRUE, size = 3) +
+  
+  # plot styling
+  scale_fill_gradient(name = "Read relative\nabundance / [%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
+  scale_x_discrete(name = NULL, expand = c(0,0)) +
+  scale_y_discrete(name = NULL, expand = c(0,0)) +
+
+  theme_bw(base_size = 8) +
+
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank()
+        )
+```

@@ -1,4 +1,6 @@
 ---
+---
+---
 title: "Oman methane isotope plotting"
 subtitle: "Source file: 200813_Oman_14CH4_paper_figs.Rmd"
 author: "Daniel Nothaft"
