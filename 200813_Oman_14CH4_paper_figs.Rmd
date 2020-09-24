@@ -95,11 +95,11 @@ fill_5_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#
 
 # levels (for order of appearance in legend)
 
-data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II", "Kidd Creek", "Sabatier reaction 70˚C to 90˚C"))
+data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek"))
 
 # shapes
 
-shapes_all_sites_named <- c("Oman/UAE" = 21, "Philippines" = 0, "Mid-Cayman Rise" = 2,  "Ashadze II" = 5, "Kidd Creek" = 4, "Sabatier reaction 70˚C to 90˚C" = 3)
+shapes_all_sites_named <- c("Oman/UAE" = 21, "Philippines" = 0, "Mid-Cayman Rise" = 2,  "Ashadze II" = 5, "Kidd Creek" = 4, "Greece" = 3)
 
 shapes_fills <- c(22, 23, 24, 21)
 ```
