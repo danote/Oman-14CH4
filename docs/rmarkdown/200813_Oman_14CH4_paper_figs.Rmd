@@ -28,6 +28,8 @@ library(scales) # making log scales with exponents
 library(ggrepel) # algorithm to avoid overlapping labels
 library(cowplot) # extracting legends from plots
 library(lemon) # repeat axis lines for paneled figures in ggplot
+library(ggpmisc) # adding linear regression equations to ggplot
+library(latex2exp) # plot labels with latex
 
 # global knitting options for automatic saving of all plots as .png and .pdf
 knitr::opts_chunk$set(
@@ -91,6 +93,7 @@ color_rock_crush_named <- c("rock crushing" = "#D55E00", "vent/well fluid" = "bl
 color_rock_crush_named_new_line <- c("rock\ncrushing" = "#D55E00", "vent/well\nfluid" = "black")
 
 fill_4_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#56B4E9", "CM2A" = "#0072B2")
+fill_5_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#56B4E9", "CM2A" = "#0072B2", "WAB56" = NA)
 
 # levels (for order of appearance in legend)
 
@@ -180,7 +183,7 @@ MWL_plot
 
 ```{r summ-CD}
 # make data frame of CH4 d13C and dD data for all wells
-data_CD <- data %>% select(sampling_site, year_sampled, depth_fluid_intake_mbct, water_type, CH4_d13C_permil_VPDB_LBNL, CH4_dD_permil_VSMOW_LBNL,
+data_CD <- data %>% select(sampling_site, notes, year_sampled, depth_fluid_intake_mbct, water_type, CH4_d13C_permil_VPDB_LBNL, CH4_dD_permil_VSMOW_LBNL,
 CH4_d13C_permil_VPDB_CUB, CH4_dD_permil_VSMOW_CUB, CH4_d13C_permil_VPDB_MIT, CH4_dD_permil_VSMOW_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_dD_permil_VSMOW_UCLA, site)
 
 # compute means between analyses in multiple labs
@@ -196,7 +199,7 @@ data_CD <- data_CD %>%
 data_CD <- data_CD %>% filter(!is.nan(CH4_d13C_permil_VPDB_interlab_mean) & !is.nan(CH4_dD_permil_VSMOW_interlab_mean))
 
 # print
-data_CD %>% select(sampling_site, year_sampled, CH4_d13C_permil_VPDB_interlab_mean, CH4_dD_permil_VSMOW_interlab_mean)
+data_CD %>% select(sampling_site, notes, year_sampled, CH4_d13C_permil_VPDB_interlab_mean, CH4_dD_permil_VSMOW_interlab_mean)
 ```
 
 Summarize WAB188 $\delta^{13}\text{C}_{\text{CH}_4}$ data
@@ -383,7 +386,8 @@ H2_CH4_plot
 Prepare Oman well data
 ```{r get_CD_data}
 # make data frame of CH4 d13C data
-data_C_gathered <- data_CD %>% select(sampling_site, year_sampled, water_type, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_d13C_permil_VPDB_LBNL, site, depth_fluid_intake_mbct) %>% gather(key = "parameter", value = "CH4_d13C_permil_VPDB", -sampling_site, -water_type, -year_sampled, -site, -depth_fluid_intake_mbct)
+data_C_gathered <- data_CD %>% select(sampling_site, notes, year_sampled, water_type, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_d13C_permil_VPDB_LBNL, site, depth_fluid_intake_mbct) %>%
+  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled, -site, -depth_fluid_intake_mbct), names_to = "parameter", values_to = "CH4_d13C_permil_VPDB")
 
 # make a column for analytical laboratory
 data_C_gathered <- data_C_gathered %>% mutate(lab = case_when(
@@ -391,10 +395,14 @@ str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
 str_detect(parameter, "CUB") == TRUE ~ "CUB",
 str_detect(parameter, "MIT") == TRUE ~ "MIT",
 str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
-))  %>%  select(-parameter)
+))  %>%
+  select(-parameter)
+
+# data_C_gathered
 
 # repeat the above for dD
-data_D_gathered <- data_CD %>% select(sampling_site, water_type, year_sampled, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA, CH4_dD_permil_VSMOW_LBNL) %>% gather(key = "parameter", value = "CH4_dD_permil_VSMOW", -sampling_site, -water_type, -year_sampled)
+data_D_gathered <- data_CD %>% select(sampling_site, notes, water_type, year_sampled, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA, CH4_dD_permil_VSMOW_LBNL) %>%
+  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled), names_to = "parameter", values_to = "CH4_dD_permil_VSMOW")
 
 data_D_gathered <- data_D_gathered %>% mutate(lab = case_when(
 str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
@@ -404,7 +412,10 @@ str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
 ))  %>%  select(-parameter)
 
 # combine 13C and D data
-data_CD_gathered <- full_join(data_C_gathered, data_D_gathered) %>% filter(sampling_site != "WAB56")
+data_CD_gathered <- full_join(data_C_gathered, data_D_gathered) %>%
+  filter(!is.na(CH4_d13C_permil_VPDB) | !is.na(CH4_dD_permil_VSMOW))
+
+data_CD_gathered
 ```
 
 ## Plot
@@ -462,7 +473,7 @@ CD_plot <-
   scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VPDB \\]$"), limits = c(-90, 15), expand = c(0,0)) +
   
   # symbol styling
-  scale_fill_manual(values = fill_4_wells_named, name="water type", guide = guide_legend(order = 2)) +
+  scale_fill_manual(values = fill_5_wells_named, name="water type", guide = guide_legend(order = 2)) +
   scale_shape_manual(values = shapes_all_sites_named, guide = guide_legend(ncol = 2, order = 1)) +
 
   # annotations
@@ -967,6 +978,7 @@ data_14CH4_NSHQ14_longer_longer <- data_14CH4_NSHQ14_longer %>%
 
 data_14CH4_NSHQ14_longer_longer
 ```
+
 ```{r 14CH4-tex}
 # add tex formatting
 data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>% 
@@ -981,7 +993,7 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
 ```
 
 ## Plot
-```{r, "plot-CH4_F14C-d13C-dD-lab-color", fig.width = 3.42, fig.height = 3.5}
+```{r, "plot-CH4_F14C-d13C-dD-lab-color", fig.width = 3.42, fig.height = 3.5, warning=FALSE}
 CH4_F14C_d13C_dD_plot <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
@@ -1030,7 +1042,7 @@ CH4_F14C_d13C_dD_plot
 
 
 
-```{r, "plot-CH4_F14C-d13C-dD-year-color-shape", fig.width = 3.42, fig.height = 4.5}
+```{r, "plot-CH4_F14C-d13C-dD-year-color-shape", fig.width = 3.42, fig.height = 4.5, warning=FALSE}
 CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
@@ -1077,7 +1089,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% gg
 CH4_F14C_d13C_dD_plot_year_color_shape
 ```
 
-```{r, "plot-CH4_F14C-d13C-dD-year-color-shape-clean", fig.width = 3.42, fig.height = 4.5}
+```{r, "plot-CH4_F14C-d13C-dD-year-color-shape-clean", fig.width = 3.42, fig.height = 4.5, warning=FALSE}
 CH4_F14C_d13C_dD_plot_year_color_shape_clean <- CH4_F14C_d13C_dD_plot_year_color_shape + 
   facet_rep_grid(rows = vars(tex_params), scales = "free_y", switch = "y", labeller = latex_labeller) +
   theme_classic() +
@@ -1096,7 +1108,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean <- CH4_F14C_d13C_dD_plot_year_color
 CH4_F14C_d13C_dD_plot_year_color_shape_clean
 ```
 
-```{r, "plot-CH4_F14C-d13C-dD-year-color-shape-clean-letter-tagged", fig.width = 3.42, fig.height = 4.5}
+```{r, "plot-CH4_F14C-d13C-dD-year-color-shape-clean-letter-tagged", fig.width = 3.42, fig.height = 4.5, warning=FALSE}
 CH4_F14C_d13C_dD_plot_year_color_shape_clean %>% tag_facet_keep_strip(
   open = "",
   close = "",
@@ -1104,3 +1116,147 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean %>% tag_facet_keep_strip(
 )
 ```
 
+# Correlations and regressions
+## $\delta^{13}\text{C}_{\text{CH}_4}$ vs. F$^{14}$C$_{\text{CH}_4}$
+```{r cor-test-d13C-Fm}
+cor.test( ~ CH4_Fm + CH4_d13C_permil_VPDB,
+         data=data_14CH4_NSHQ14_longer,
+         method = "pearson",
+         conf.level = 0.95)
+```
+
+```{r lm-d13C-Fm}
+# generate linear model
+model_d13C_F14C = lm(CH4_d13C_permil_VPDB ~ CH4_Fm,
+           data = data_14CH4_NSHQ14_longer)
+
+# print model summary
+summary(model_d13C_F14C)
+```
+
+Predict $\delta^{13}\text{C}_{\text{CH}_4}$ (and 95% confidence interval) for F$^{14}$C$_{\text{CH}_4}$ of 0 and 1
+```{r predict-d13C}
+predict(model_d13C_F14C, newdata = data.frame(CH4_Fm=c(0,1)), interval = c("confidence"))
+```
+
+```{r plot-d13C-Fm-w-reg, warning=FALSE}
+data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_Fm, y = CH4_d13C_permil_VPDB))+
+  geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
+  stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
+  geom_point()+
+  scale_x_continuous(limits = c(0,1), expand = c(0,0), name = TeX("CH$_4$ fraction modern")) +
+  scale_y_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VPDB \\]$")) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(r = 12)
+  )
+```
+
+## $\delta\text{D}_{\text{CH}_4}$ vs. F$^{14}$C$_{\text{CH}_4}$
+```{r cor-test-D-Fm}
+cor.test( ~ CH4_Fm + CH4_dD_permil_VSMOW,
+         data=data_14CH4_NSHQ14_longer,
+         method = "pearson",
+         conf.level = 0.95)
+```
+
+```{r lm-D-Fm}
+# generate linear model
+model_dD_F14C = lm(CH4_dD_permil_VSMOW ~ CH4_Fm,
+           data = data_14CH4_NSHQ14_longer)
+
+# print model summary
+summary(model_dD_F14C)
+```
+Predict $\delta^{13}\text{C}_{\text{CH}_4}$ (and 95% confidence interval) for F$^{14}$C$_{\text{CH}_4}$ of 0 and 1
+```{r predict-dD}
+predict(model_dD_F14C, newdata = data.frame(CH4_Fm=c(0,1)), interval = c("confidence"))
+```
+
+```{r plot-D-Fm-w-reg, warning=FALSE}
+data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_Fm, y = CH4_dD_permil_VSMOW))+
+  geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
+  stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
+  geom_point()+
+  scale_x_continuous(limits = c(0,1), expand = c(0,0), name = TeX("CH$_4$ fraction modern")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(r = 12)
+  )
+```
+
+## $\delta\text{D}_{\text{CH}_4}$ vs. $\delta^{13}\text{C}_{\text{CH}_4}$
+### Only data from NSHQ14 with paired $\text{F}^{14}\text{C}_{\text{CH}_4}$ measurements
+```{r cor-test-D-13C-w-paired-14CH4}
+cor.test( ~ CH4_d13C_permil_VPDB + CH4_dD_permil_VSMOW,
+         data=data_14CH4_NSHQ14_longer,
+         method = "pearson",
+         conf.level = 0.95)
+```
+
+```{r lm-D-13C-w-paired-14CH4}
+# generate linear model
+model_dD_d13C = lm(CH4_dD_permil_VSMOW ~ CH4_d13C_permil_VPDB,
+           data = data_14CH4_NSHQ14_longer)
+
+# print model summary
+summary(model_dD_d13C)
+```
+
+```{r plot-D-13C-w-reg-w-paired-14CH4, warning=FALSE}
+data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_permil_VSMOW))+
+  geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
+  stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
+  geom_point()+
+  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(r = 12)
+  )
+```
+
+### All NSHQ14 data 2014-2019 data
+```{r get-CD-isotope-data-for-NSHQ14}
+data_CD_gathered_NSHQ14 <- data_CD_gathered %>%
+  # only samples from NSHQ14
+  filter(sampling_site == "NSHQ14") %>%
+  # only samples with CH4 d13C and CH4 dD measurements
+  filter(!is.na(CH4_d13C_permil_VPDB) & !is.na(CH4_dD_permil_VSMOW))
+
+# print
+data_CD_gathered_NSHQ14
+```
+
+```{r CD_NSHQ14_n}
+# get sample size
+data_CD_gathered_NSHQ14 %>% summarise(n = n())
+```
+
+
+```{r cor-test-D-13C-2014-2019}
+cor.test( ~ CH4_d13C_permil_VPDB + CH4_dD_permil_VSMOW,
+         data = data_CD_gathered_NSHQ14,
+         method = "pearson",
+         conf.level = 0.95)
+```
+
+```{r lm-D-13C-2014-2019}
+# generate linear model
+model_dD_d13C = lm(CH4_dD_permil_VSMOW ~ CH4_d13C_permil_VPDB,
+           data = data_CD_gathered_NSHQ14)
+
+# print model summary
+summary(model_dD_d13C)
+```
+
+```{r plot-D-13C-w-reg-2014-2019, warning=FALSE}
+data_CD_gathered_NSHQ14 %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_permil_VSMOW))+
+  geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
+  stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"))) +
+  geom_point()+
+  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  theme_classic()
+```

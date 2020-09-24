@@ -605,7 +605,9 @@ NSHQ14_BA3A_profiles_and_isotopes_plot_clean %>% tag_facet_outside_keep_strip_no
 
 # Geotherm
 
-```{r geotherm-NSHQ14-full}
+## NSHQ14
+
+```{r geotherm-NSHQ14-full, warning=FALSE}
 plot_T_NSHQ14 <- NSHQ14_profile %>% ggplot( mapping = aes(
     x = T_C,
     y = depth_sampled_mbgl)) +
@@ -623,7 +625,7 @@ plot_T_NSHQ14 <- NSHQ14_profile %>% ggplot( mapping = aes(
 plot_T_NSHQ14 
 ```
 
-```{r geotherm-NSHQ14-below-100m}
+```{r geotherm-NSHQ14-below-100m, warning=FALSE}
 NSHQ14_profile_below_100m <- NSHQ14_profile %>% filter(depth_sampled_mbgl > 100)
 
 plot_T_NSHQ14_below_100m <- NSHQ14_profile_below_100m %>% ggplot( mapping = aes(
@@ -641,4 +643,62 @@ plot_T_NSHQ14_below_100m <- NSHQ14_profile_below_100m %>% ggplot( mapping = aes(
   )
 
 plot_T_NSHQ14_below_100m 
+```
+
+```{r lm-T-d-NSHQ14-below-100m}
+# generate linear model
+model_T_d_NSHQ14_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = NSHQ14_profile_below_100m)
+
+# print model summary
+summary(model_T_d_NSHQ14_below_100m)
+```
+
+## BA3A
+
+```{r geotherm-BA3A-full, warning=FALSE}
+plot_T_BA3A <- BA3A_profile %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = BA3A_profile$T_C ~ BA3A_profile$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A 
+```
+
+```{r geotherm-BA3A-below-100m, warning=FALSE}
+BA3A_profile_below_100m <- BA3A_profile %>% filter(depth_sampled_mbgl > 100)
+
+plot_T_BA3A_below_100m <- BA3A_profile_below_100m %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = BA3A_profile_below_100m$T_C ~ BA3A_profile_below_100m$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+    theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A_below_100m 
+```
+
+```{r lm-T-d-BA3A-below-100m}
+# generate linear model
+model_T_d_BA3A_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = BA3A_profile_below_100m)
+
+# print model summary
+summary(model_T_d_BA3A_below_100m)
 ```

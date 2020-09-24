@@ -290,13 +290,32 @@ OM19_heat_tax_6 +
 
 # OM19 CH4 taxa
 
-```{r OM19-simple-CH4-heat-sci, fig.width=7, fig.height=1.5}
-CH4_taxa <- c("Methanobacteria", "Methanomicrobia", "Methanopyrales", "Methanocellales", "Methanoplasmatales", "Methanosarcinales", "Methanomassiliicocc", "Methylococc", "Methylocystis", "Methylosinus", "Methylocella", "Methylocapsa", "Methylacidiphil", "Methylomirabilis", "ANME")
+```{r OM19-simple-CH4-heat-sci, fig.width=9, fig.height=2}
+CH4_taxa <- c("Methanobacteri", "Methanomicrobia", "Methanopyrales", "Methanocellales", "Methanoplasmatales", "Methanosarcinales", "Methanomassiliicocc", "Methylococc", "Methylocystis", "Methylosinus", "Methylocella", "Methylocapsa", "Methylacidiphil", "Methylomirabilis", "ANME")
 
 ampli_data_OM19_focus_samples_taxa_filtered %>%
   ampli_heat_map(x_sample_group_col = sampling_site, taxa_selection_method = "custom_taxa_char_vector", custom_taxa_char_vector = CH4_taxa, plot_other_taxa_bin = FALSE, y_taxa_arrangement = "alpha", text_label_scalar = 100, text_label_decimal_places = 1, text_label_format = "scientific") +
   # plot geometry
   geom_text(parse = TRUE, size = 3) +
+  
+  # plot styling
+  scale_fill_gradient(name = "Read relative\nabundance / [%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
+  scale_x_discrete(name = NULL, expand = c(0,0)) +
+  scale_y_discrete(name = NULL, expand = c(0,0)) +
+
+  theme_bw(base_size = 8) +
+
+  theme(
+    legend.position = "right",
+    panel.grid = element_blank()
+        )
+```
+
+```{r OM19-simple-CH4-heat-round-simple, fig.width=4, fig.height=2}
+ampli_data_OM19_focus_samples_taxa_filtered %>%
+  ampli_heat_map(y_taxa_col = Genus,  x_sample_group_col = sampling_site, taxa_selection_method = "custom_taxa_char_vector", custom_taxa_char_vector = CH4_taxa, plot_other_taxa_bin = FALSE, y_taxa_arrangement = "alpha", text_label_scalar = 100, text_label_decimal_places = 0, text_label_threshold = 0.01, text_label_zero = "n.r.", text_label_threshold_round_priority = "round") +
+  # plot geometry
+  geom_text(parse = FALSE, size = 3) +
   
   # plot styling
   scale_fill_gradient(name = "Read relative\nabundance / [%]", low = "white", high = "red", labels = label_percent(accuracy = 1, suffix = "")) +
