@@ -1,0 +1,706 @@
+---
+---
+---
+title: "Oman methane isotope plotting"
+subtitle: "Source file: 200813_Oman_14CH4_paper_figs.Rmd"
+author: "Daniel Nothaft"
+date: "`r format(Sys.Date(), '%d %b %Y')`"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: yes # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: show # change to hide to hide code by default
+editor_options:
+  chunk_output_type: inline
+---
+# Setup
+## Load code libraries
+```{r setup, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) # dplyr, tidyr, ggplot
+library(readxl) # reading excel files
+library(knitr) # generating reports
+library(ggpmisc) # add equations of best fit to ggplot
+library(scales) # making log scales with exponents
+library(lemon) # repeat axis lines for paneled figures in ggplot
+
+# global knitting options for automatic saving of all plots as .png and .pdf
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("fig_output/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input()))),
+  cache.path = file.path("cache/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input())))
+)
+```
+
+```{r source}
+# source all relevant scripting files
+source(file.path("scripts", "plotting_functions.R"))
+```
+
+## Load data
+
+```{r load-data}
+# read NSHQ14 borehole log from March 17th, 2018
+NSHQ14_profile_raw <- read_xlsx("data_raw/Summary_metadata/NSHQ14_QL40IDRO_20180317_down_5cm.xlsx", na = c("-99999.00", "-99999"))
+
+# read BA3A borehole log from March 18th, 2018
+BA3A_profile_raw <- read_xlsx("data_raw/Summary_metadata/BA3A_QL40IDRO_20180318_down_5cm.xlsx", na = c("-99999.00", "-99999"))
+
+# Read in conversion from Ag/AgCl electrode to SHE as function of T
+Ag_AgCl_E_T <- read_xlsx("data_raw/Summary_metadata/Ag_AgCl_E_T.xlsx", na = "NA")
+
+# Load carbonate mineral isotope data from wells
+data_carb <- read_xlsx("data_raw/Summary_metadata/Carbonate_isotopes_BA3A_NSHQ14.xlsx", na = "NA")
+
+# Load carbonate mineral isotope data from wells
+BA3A_vein_types <- read_xlsx("data_raw/Summary_metadata/BA3A_vein_types_counts.xlsx", na = "NA")
+```
+
+# Vein types
+
+Descriptions of carbonate-bearing vein types from Proc. Oman Drilling Project, Init. Rpts. Phase 2, 
+Hole BA3A. Veins
+
+*Ca veins*
+Ca veins are layered composite veins composed of green to black serpentine and carbonate minerals. They are pervasive in the uppermost cores. The Ca veins are subdivided into three subgroups in their appearance: Ca1 veins have dark colored serpentine cores with carbonate rims; Ca2 veins have carbonate cores with serpentine rims (this vein type was not observed in Hole BA3A). A few Ca3 veins include waxy green serpentine and carbonate minerals. For the most part, in describing the core from Hole BA3A, we did not record subtypes based on whether the cores or the rims were calcite-bearing, unlike in the description of the upper 200 meters of the core from Hole BA1B.
+
+*Cb veins*
+Cb veins are white monomineralic, granular veins of carbonate minerals. They occur in the uppermost cores together with Ca veins. The abundance of both Ca and Cb veins decreases systematically with depth, and they were not observed in the core below 100 meters.
+
+Show first few lines of vein data:
+```{r head-vein-types}
+head(BA3A_vein_types)
+```
+Focus on carbonate vein data
+```{r focus-carb-veins}
+BA3A_vein_types_carb <- BA3A_vein_types %>%
+  # make column with value 1 if vein type is a carbonate (Ca or Cb per Oman DP descriptions above), and 0 if any other type of vein
+  mutate(vein_type_carbonate = if_else((vein_type == "Ca" | vein_type == "Ca1" | vein_type == "Ca2" | vein_type == "Ca3" | vein_type == "Cb"), 1, 0)) %>%
+  # filter for only carbonate veins
+  filter(vein_type_carbonate == 1) %>% 
+  # select only columns for depth and whether vein is carbonate
+  select(depth_sampled_mbgl, vein_type_carbonate) %>%
+  # add a column identifying sample site as BA3A
+  mutate(sampling_site = "BA3A")
+  
+```
+
+Plot histogram of carbonate veins in BA3A
+```{r BA3A-carbonate-vein-histogram}
+BA3A_vein_types_carb %>% ggplot(
+  aes(y = depth_sampled_mbgl)
+) +
+geom_histogram(binwidth = 5, boundary = 0) +
+  scale_y_reverse() +
+  theme_bw()
+```
+
+# NSHQ14 well log
+
+## clean up data
+```{r get-relevant-log-data-NSHQ14}
+# select relevant columns and rename them
+NSHQ14_profile <- NSHQ14_profile_raw %>% select(depth_sampled_mbgl = `DEPT[M]`, P_dbar = PRESSURE, T_C = TEMPERATURE, pH = PH, ORP_mV_Ag_AgCl = REDOX, cond_uS_per_cm = `COND(FW)`)
+
+# Filter out nonsense values (i.e. when probe is above water table)
+NSHQ14_profile <- NSHQ14_profile %>% filter(!is.na(ORP_mV_Ag_AgCl))
+
+# print some summary statistics
+NSHQ14_profile %>% summary()
+```
+
+```{r subset-and-print-log-NSHQ14}
+# subset the data for readability and print
+NSHQ14_profile %>% slice(seq(from = 1, to = 30000, by = 1000)) %>% kable(digits=1)
+```
+
+## Convert to ORP to SHE
+
+Plot conversion between Ag/AgCl electrode and SHE as function of temperature
+```{r plot-Ag-AgCl-SHE-conversion}
+formula <- Ag_AgCl_E_T$E_Ag_AgCl_KCl_sat_mV ~ Ag_AgCl_E_T$T_C
+
+plot_redox_offset_T <- Ag_AgCl_E_T %>% ggplot(aes(x = T_C, y = E_Ag_AgCl_KCl_sat_mV))+
+  geom_point()+
+  geom_smooth(method="lm")+
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = formula, parse = TRUE, rr.digits = 2, label.x = .2, label.y = .9)+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_redox_offset_T
+```
+Save a linear model of the relationship between Ag/AgCl electrode and SHE as function of temperature
+```{r save-lm-Ag-AgCl-SHE}
+Ag_AgCl_E_T_lm <- lm(formula)
+
+Ag_AgCl_E_T_lm_summ <- Ag_AgCl_E_T_lm %>% summary()
+
+Ag_AgCl_E_T_lm_summ
+```
+Save slope
+```{r save-lm-Ag-AgCl-SHE-slope}
+Ag_AgCl_E_T_lm_slope <- coef(Ag_AgCl_E_T_lm_summ)["Ag_AgCl_E_T$T_C",  "Estimate"]
+
+Ag_AgCl_E_T_lm_slope
+```
+Save intercept
+```{r save-lm-Ag-AgCl-SHE-int}
+Ag_AgCl_E_T_lm_int <- coef(Ag_AgCl_E_T_lm_summ)["(Intercept)",  "Estimate"]
+
+Ag_AgCl_E_T_lm_int
+```
+
+Apply conversion
+```{r apply-Ag-AgCl-SHE-conversion-NSHQ14}
+NSHQ14_profile <- NSHQ14_profile %>% mutate(Eh_mV = ORP_mV_Ag_AgCl + Ag_AgCl_E_T_lm_int + Ag_AgCl_E_T_lm_slope * T_C) # convert probe ORP_mV_Ag_AgCl reading from Ag/AgCl to SHE
+
+# print some summary statistics
+NSHQ14_profile %>% select(Eh_mV) %>% summary()
+```
+
+## Hydrostatic pressure
+Pressure will be used to assess calculated stability limit of water with respect to molecular hydrogen.
+
+Calculate from theory
+```{r calc-hydrostatic-P-NSHQ14}
+P_NSHQ14_atmospheric_Pa <- 95490 # measured ambient pressure with Garmin GPSMAP 64S by DBN in 2019
+P_NSHQ14_atmospheric_bar <-  P_NSHQ14_atmospheric_Pa * 1e-5
+
+water_level_NSHQ14_m <- as.numeric(NSHQ14_profile %>% select(depth_sampled_mbgl) %>% min())
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(water_column_above_m = depth_sampled_mbgl - water_level_NSHQ14_m)
+
+
+# Hydrostatic pressure in a liquid can be calculated as
+# 
+# p = ρ g h                         (1)
+# 
+# where
+# 
+# p = pressure in liquid (N/m2, Pa, lbf/ft2, psf)
+# 
+# ρ = density of liquid (kg/m3, slugs/ft3)
+# 
+# g = acceleration of gravity (9.81 m/s2, 32.17405 ft/s2)
+# 
+# h = height of fluid column - or depth in the fluid where pressure is measured (m, ft)
+
+# https://www.engineeringtoolbox.com/hydrostatic-pressure-water-d_1632.html
+
+density_water <- 1000 # kg/m3
+g = 9.81 # acceleration of gravity, m/s2
+
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_hydrostatic_calc_Pa = P_NSHQ14_atmospheric_Pa + density_water * g * water_column_above_m)
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_hydrostatic_calc_bar = P_hydrostatic_calc_Pa * 1e-5)
+
+# print some summary statistics
+NSHQ14_profile %>% select(P_hydrostatic_calc_bar) %>% summary()
+```
+```{r convert-hydrostatic-P-to-bar-NSHQ14}
+# convert measured pressure to bar
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_bar = P_dbar / 10)
+```
+
+```{r prepare-P-plot-NSHQ14}
+# prepare for plotting
+NSHQ14_profile_longer_P <- NSHQ14_profile %>% select(depth_sampled_mbgl, P_hydrostatic_calc_bar, P_bar) %>% gather(-depth_sampled_mbgl, key = parameter, value = P_bar) %>% mutate(type = if_else(parameter == "P_hydrostatic_calc_bar", "calculated", "measured"))
+```
+
+Compare theoretical hydrostatic pressure versus measured pressure
+```{r P-plot-NSHQ14, fig.height=4, fig.width=4}
+plot_NSHQ14_P <- NSHQ14_profile_longer_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = P_bar, color = type))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+    scale_y_continuous(name = latex2exp::TeX("$\\textit{P}_{hydrostatic}\\,/\\,\\lbrack bar \\rbrack$"))+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_NSHQ14_P
+```
+They are similar.
+
+## Stability limits of water
+
+Eh, f(T,P)
+```{r calc-H2-H20-limit-NSHQ14}
+Faraday <- 96485.33212331 # C/mol
+R <- 8.31446261815324 # J/(mol⋅K) gas constant
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(T_K= T_C + 273.15) # convert T to Kelvins
+
+# calculate H20-H2 stability limit
+NSHQ14_profile <- NSHQ14_profile %>% mutate(H2O_H2_limit_Eh_f_T_P_mV = (-R*T_K/2/Faraday * log(((10^-pH)^-2)*P_bar))*1000)
+
+NSHQ14_profile %>% select(H2O_H2_limit_Eh_f_T_P_mV) %>% summary()
+```
+
+```{r prepare-H2-H20-limit-plot-NSHQ14}
+# prepare for plotting
+NSHQ14_profile_longer_Eh_T_P <- NSHQ14_profile %>% select(depth_sampled_mbgl, Eh_mV, H2O_H2_limit_Eh_f_T_P_mV) %>% gather(-depth_sampled_mbgl, key = parameter, value = Eh_mV)
+```
+
+```{r H2-H20-limit-plot-NSHQ14, fig.height=5, fig.width=4}
+plot_NSHQ14_Eh <- NSHQ14_profile_longer_Eh_T_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = Eh_mV, color = parameter))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+  scale_y_continuous(name = "Eh / [mV]")+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "bottom",
+    legend.direction = "vertical")
+
+plot_NSHQ14_Eh
+```
+
+# BA3A well log
+
+## clean up data
+```{r get-relevant-log-data-BA3A}
+# select relevant columns and rename them
+BA3A_profile <- BA3A_profile_raw %>% select(depth_sampled_mbgl = `DEPT[M]`, P_dbar = PRESSURE, T_C = TEMPERATURE, pH = PH, ORP_mV_Ag_AgCl = REDOX, cond_uS_per_cm = `COND(FW)`)
+
+# Filter out nonsense values (i.e. when probe is above water table)
+BA3A_profile <- BA3A_profile %>% filter(!is.na(ORP_mV_Ag_AgCl))
+
+# print some summary statistics
+BA3A_profile %>% summary()
+```
+
+```{r subset-and-print-log-BA3A}
+# subset the data for readability and print
+BA3A_profile %>% slice(seq(from = 1, to = 30000, by = 1000)) %>% kable(digits=1)
+```
+
+## Convert to ORP to SHE
+
+Apply conversion
+```{r apply-Ag-AgCl-SHE-conversion-BA3A}
+BA3A_profile <- BA3A_profile %>% mutate(Eh_mV = ORP_mV_Ag_AgCl + Ag_AgCl_E_T_lm_int + Ag_AgCl_E_T_lm_slope * T_C) # convert probe ORP_mV_Ag_AgCl reading from Ag/AgCl to SHE
+
+# print some summary statistics
+BA3A_profile %>% select(Eh_mV) %>% summary()
+```
+
+## Hydrostatic pressure
+Pressure will be used to assess calculated stability limit of water with respect to molecular hydrogen.
+
+Calculate from theory
+```{r calc-hydrostatic-P-BA3A}
+P_BA3A_atmospheric_Pa <- 95490 # measured ambient pressure with Garmin GPSMAP 64S by DBN in 2019
+P_BA3A_atmospheric_bar <-  P_BA3A_atmospheric_Pa * 1e-5
+
+water_level_BA3A_m <- as.numeric(BA3A_profile %>% select(depth_sampled_mbgl) %>% min())
+
+BA3A_profile <- BA3A_profile %>% mutate(water_column_above_m = depth_sampled_mbgl - water_level_BA3A_m)
+
+
+# Hydrostatic pressure in a liquid can be calculated as
+# 
+# p = ρ g h                         (1)
+# 
+# where
+# 
+# p = pressure in liquid (N/m2, Pa, lbf/ft2, psf)
+# 
+# ρ = density of liquid (kg/m3, slugs/ft3)
+# 
+# g = acceleration of gravity (9.81 m/s2, 32.17405 ft/s2)
+# 
+# h = height of fluid column - or depth in the fluid where pressure is measured (m, ft)
+
+# https://www.engineeringtoolbox.com/hydrostatic-pressure-water-d_1632.html
+
+density_water <- 1000 # kg/m3
+g = 9.81 # acceleration of gravity, m/s2
+
+
+BA3A_profile <- BA3A_profile %>% mutate(P_hydrostatic_calc_Pa = P_BA3A_atmospheric_Pa + density_water * g * water_column_above_m)
+
+BA3A_profile <- BA3A_profile %>% mutate(P_hydrostatic_calc_bar = P_hydrostatic_calc_Pa * 1e-5)
+
+# print some summary statistics
+BA3A_profile %>% select(P_hydrostatic_calc_bar) %>% summary()
+```
+```{r convert-hydrostatic-P-to-bar-BA3A}
+# convert measured pressure to bar
+BA3A_profile <- BA3A_profile %>% mutate(P_bar = P_dbar / 10)
+```
+
+```{r prepare-P-plot-BA3A}
+# prepare for plotting
+BA3A_profile_longer_P <- BA3A_profile %>% select(depth_sampled_mbgl, P_hydrostatic_calc_bar, P_bar) %>% gather(-depth_sampled_mbgl, key = parameter, value = P_bar) %>% mutate(type = if_else(parameter == "P_hydrostatic_calc_bar", "calculated", "measured"))
+```
+
+Compare theoretical hydrostatic pressure versus measured pressure
+```{r P-plot-BA3A, fig.height=4, fig.width=4}
+plot_BA3A_P <- BA3A_profile_longer_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = P_bar, color = type))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+    scale_y_continuous(name = latex2exp::TeX("$\\textit{P}_{hydrostatic}\\,/\\,\\lbrack bar \\rbrack$"))+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_BA3A_P
+```
+They are similar.
+
+## Stability limits of water
+
+Eh, f(T,P)
+```{r calc-H2-H20-limit-BA3A}
+Faraday <- 96485.33212331 # C/mol
+R <- 8.31446261815324 # J/(mol⋅K) gas constant
+
+BA3A_profile <- BA3A_profile %>% mutate(T_K= T_C + 273.15) # convert T to Kelvins
+
+# calculate H20-H2 stability limit
+BA3A_profile <- BA3A_profile %>% mutate(H2O_H2_limit_Eh_f_T_P_mV = (-R*T_K/2/Faraday * log(((10^-pH)^-2)*P_bar))*1000)
+
+BA3A_profile %>% select(H2O_H2_limit_Eh_f_T_P_mV) %>% summary()
+```
+
+```{r prepare-H2-H20-limit-plot-BA3A}
+# prepare for plotting
+BA3A_profile_longer_Eh_T_P <- BA3A_profile %>% select(depth_sampled_mbgl, Eh_mV, H2O_H2_limit_Eh_f_T_P_mV) %>% gather(-depth_sampled_mbgl, key = parameter, value = Eh_mV)
+```
+
+```{r H2-H20-limit-plot-BA3A, fig.height=5, fig.width=4}
+plot_BA3A_Eh <- BA3A_profile_longer_Eh_T_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = Eh_mV, color = parameter))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+  scale_y_continuous(name = "Eh / [mV]")+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "bottom",
+    legend.direction = "vertical")
+
+plot_BA3A_Eh
+```
+
+# NSHQ14 BA3A H$_2$O-H$_2$ stability limit plot
+Join NSHQ14 and BA3A Eh data sets
+```{r join-NSHQ14-and-BA3A-Eh-data-sets}
+BA3A_NSHQ14_profile_longer_Eh_T_P <- full_join(BA3A_profile_longer_Eh_T_P %>% mutate(sampling_site = "BA3A"), NSHQ14_profile_longer_Eh_T_P %>% mutate(sampling_site = "NSHQ14"))
+```
+
+```{r change-param-names}
+BA3A_NSHQ14_profile_longer_Eh_T_P <- BA3A_NSHQ14_profile_longer_Eh_T_P %>%
+  mutate(
+    parameter = case_when(
+        parameter == "Eh_mV" ~ "Measured",
+        parameter == "H2O_H2_limit_Eh_f_T_P_mV" ~ "Stability limit of water with respect to molecular hydrogen\nas a function of measured temperature, pressure, and pH"
+    )
+  )
+```
+
+```{r H2-H20-limit-plot-BA3A-NSHQ14, fig.height=5, fig.width=7}
+plot_BA3A_NSHQ14_Eh <- BA3A_NSHQ14_profile_longer_Eh_T_P  %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = Eh_mV, color = parameter))+
+  scale_x_reverse(name = "Depth / [m]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+  scale_y_continuous(name = "Eh / [mV]")+
+  scale_color_manual(name = "Parameter", values = c("Measured" = "black", "Stability limit of water with respect to molecular hydrogen\nas a function of measured temperature, pressure, and pH" = "#D55E00")) +
+  facet_grid(cols = vars(sampling_site), scales = "free") +
+  coord_flip()+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank(),
+    legend.position = "bottom",
+    legend.direction = "vertical",
+    panel.background = element_blank())
+
+plot_BA3A_NSHQ14_Eh
+```
+```{r H2-H20-limit-plot-BA3A-NSHQ14-letter-tagged}
+plot_BA3A_NSHQ14_Eh %>% tag_facet_keep_strip(
+ x = -Inf, y = -Inf, open = "", close = "",
+          tag_pool = LETTERS
+)
+```
+# Prepare data for facet plot
+Get relevant carbonate mineral isotope data
+```{r get-carb-min-iso-data}
+data_NSHQ14_BA3A <- data_carb %>% select(sampling_site, Fm, depth_sampled_mbgl, carbonate_d13C_VPDB_permil)
+
+# print
+data_NSHQ14_BA3A
+```
+
+convert conductivity units
+```{r convert-cond-units}
+NSHQ14_profile <- NSHQ14_profile %>% mutate(cond_mS_cm = cond_uS_per_cm/1000) %>% select(-cond_uS_per_cm) %>% mutate(sampling_site = "NSHQ14")
+BA3A_profile <- BA3A_profile %>% mutate(cond_mS_cm = cond_uS_per_cm/1000) %>% select(-cond_uS_per_cm) %>% mutate(sampling_site = "BA3A")
+```
+
+Join well logs, and carbonate vein and isotope data
+
+```{r join-well-logs-iso-and-vein-data}
+# join by type column
+NSHQ14_BA3A_profiles_and_isotopes <- full_join(NSHQ14_profile, data_NSHQ14_BA3A) %>% full_join(BA3A_profile) %>% full_join(BA3A_vein_types_carb) %>% arrange(depth_sampled_mbgl)
+
+# print first few lines
+head(NSHQ14_BA3A_profiles_and_isotopes)
+```
+
+## Pivot longer for plotting on same scale
+
+```{r pivot-longer-NSH14-BA3A}
+NSHQ14_BA3A_profiles_and_isotopes_longer <- NSHQ14_BA3A_profiles_and_isotopes %>% select(-P_dbar, -ORP_mV_Ag_AgCl, -water_column_above_m, -P_hydrostatic_calc_Pa, -P_hydrostatic_calc_bar, -P_bar, -T_K, -H2O_H2_limit_Eh_f_T_P_mV) %>% pivot_longer(cols = c(-sampling_site, -depth_sampled_mbgl), names_to = "parameter", values_to = "value", values_drop_na = TRUE)
+
+NSHQ14_BA3A_profiles_and_isotopes_longer
+```
+
+Prepping data to plot and label correctly
+```{r prepare-NSHQ14-BA3A-plot-labels}
+# set factors to set order of parameters on plot
+NSHQ14_BA3A_profiles_and_isotopes_longer$parameter <- factor(NSHQ14_BA3A_profiles_and_isotopes_longer$parameter, levels = c("T_C", "pH", "Eh_mV", "cond_mS_cm", "vein_type_carbonate", "carbonate_d13C_VPDB_permil", "Fm"))
+
+# rename how parameters should be displayed on plot using LaTeX
+NSHQ14_BA3A_profiles_and_isotopes_longer <- NSHQ14_BA3A_profiles_and_isotopes_longer %>%
+  mutate(
+    tex_params_overset = as_factor(parameter)%>%
+      fct_recode(
+        "T / $\\lbrack$$\\degree$C$\\rbrack$" = "T_C",
+        "pH" = "pH",
+        "Eh / $\\lbrack$mV$\\rbrack$" = "Eh_mV",
+        "$\\overset{Conductivity}{/\\,$\\lbrack$mS$\\cdot$cm^{-1}$\\rbrack$}$" = "cond_mS_cm",
+        "$\\overset{Veins\\,with}{carbonate,\\,BA3A}$" = "vein_type_carbonate",
+        "$\\overset{Carbonate}{\\delta^{13}C\\,/\\,$\\lbrack$‰\\,VPDB\\rbrack}$" = "carbonate_d13C_VPDB_permil",
+        "$\\overset{Carbonate}{fraction\\,modern}$" = "Fm"
+  )
+  )
+```
+
+## Plot
+```{r NSHQ14-BA3A-downhole-plot-tex-overset, fig.width=7, fig.height=4}
+NSHQ14_BA3A_profiles_and_isotopes_plot <- NSHQ14_BA3A_profiles_and_isotopes_longer %>% ggplot(aes(
+  x = depth_sampled_mbgl,
+  fill = sampling_site,
+  color = sampling_site
+  )) +
+  
+  # add line graph for applicable parameters
+  geom_line(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "T_C" | parameter == "pH" | parameter == "Eh_mV" | parameter == "cond_mS_cm")), aes(y = value)) +
+  
+  # add scatterplot for applicable parameters
+  geom_point(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "Fm" | parameter == "carbonate_d13C_VPDB_permil")), aes(y = value)) + 
+
+  # add histogram for applicable parameter
+  geom_histogram(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "vein_type_carbonate")), binwidth = 5, boundary = 0, color = NA) +
+
+  # flip coordinates (this makes it possible to do vertical line graph)
+    coord_flip() +
+  
+  # plot styling
+  scale_fill_manual(name = "Well", values = c("NSHQ14" = "black", "BA3A" = "#0072B2"))+
+  scale_color_manual(name = "Well", values = c("NSHQ14" = "black", "BA3A" = "#0072B2"))+
+  scale_x_reverse(name = "Depth / [m]", limits = c(300, -2), expand = c(0, 0), breaks = c(0, 50, 100, 150, 200, 250, 300)) + 
+  scale_y_continuous(name = NULL) +
+  
+  # generate plot facets
+  # facet_grid(cols = vars(params_recode), scales = "free", switch = "y")+
+  # for alternative names
+    facet_grid(cols = vars(tex_params_overset), scales = "free", labeller = latex_labeller, switch = "y")+
+
+  # plot design
+  theme_bw(base_size = 10) +
+  theme(
+    axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    panel.grid = element_blank(),
+    plot.margin = margin(1,1,0,1)
+  )
+
+NSHQ14_BA3A_profiles_and_isotopes_plot
+```
+
+```{r}
+equal_breaks <- function(n = 3, s = 0.05, ...){
+  function(x){
+    # rescaling
+    d <- s * diff(range(x)) / (1+2*s)
+    seq(min(x)+d, max(x)-d, length=n)
+  }
+}
+```
+
+
+```{r NSHQ14-BA3A-downhole-plot-tex-overset-clean, fig.width=7, fig.height=4}
+NSHQ14_BA3A_profiles_and_isotopes_plot_clean <- NSHQ14_BA3A_profiles_and_isotopes_longer %>% ggplot(aes(
+  x = depth_sampled_mbgl,
+  fill = sampling_site,
+  color = sampling_site
+  )) +
+  
+  # add line graph for applicable parameters
+  geom_line(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "T_C" | parameter == "pH" | parameter == "Eh_mV" | parameter == "cond_mS_cm")), aes(y = value)) +
+  
+  # add scatterplot for applicable parameters
+  geom_point(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "Fm" | parameter == "carbonate_d13C_VPDB_permil")), aes(y = value)) + 
+
+  # add histogram for applicable parameter
+  geom_histogram(data = (NSHQ14_BA3A_profiles_and_isotopes_longer %>% filter(parameter == "vein_type_carbonate")), binwidth = 5, boundary = 0, color = NA) +
+
+  # flip coordinates (this makes it possible to do vertical line graph)
+    coord_flip() +
+  
+  # plot styling
+  scale_fill_manual(name = "Well", values = c("NSHQ14" = "#56B4E9", "BA3A" = "black"))+
+  scale_color_manual(name = "Well", values = c("NSHQ14" = "#56B4E9", "BA3A" = "black"))+
+  scale_x_reverse(name = "Depth / [m]", limits = c(300, -2), expand = c(0, 0), breaks = c(0, 50, 100, 150, 200, 250, 300)) + 
+  scale_y_continuous(name = NULL, sec.axis = dup_axis(), breaks = breaks_extended(n=3.5)) +
+  
+  # generate plot facets
+  # facet_grid(cols = vars(params_recode), scales = "free", switch = "y")+
+  # for alternative names
+    # facet_grid(cols = vars(tex_params_overset), scales = "free", labeller = latex_labeller, switch = "y")+
+  facet_rep_grid(cols = vars(tex_params_overset), scales = "free", labeller = latex_labeller, switch = "y")+
+  
+  # plot design
+  theme_classic(base_size = 8.5) +
+  theme(
+    axis.text.x.top = element_text(size = 6.5),
+    axis.text.y = element_text(size = 6.5),
+    legend.position = "bottom",
+    legend.direction = "horizontal",
+    panel.grid = element_blank(),
+    plot.margin = margin(0,6,0,1),
+    strip.placement = "outside",
+    strip.background = element_blank(),
+    strip.text = element_text(vjust = 0, size = 8),
+    axis.text.x.bottom = element_blank(),
+    axis.ticks.x.bottom = element_blank(),
+    axis.line.x.bottom = element_blank(),
+    axis.line.y.left = element_line(),
+    panel.spacing = unit(-8, "pt"),
+    axis.title.y = element_text(size = 7.5)
+  )
+
+NSHQ14_BA3A_profiles_and_isotopes_plot_clean
+```
+
+```{r NSHQ14-BA3A-downhole-plot-tex-overset-no-side-tags}
+NSHQ14_BA3A_profiles_and_isotopes_plot_clean %>% tag_facet_outside_keep_strip_no_side_tags(
+  open = "",
+  close = "",
+  tag_fun_top = function(i) LETTERS[i]
+)
+```
+
+
+# Geotherm
+
+## NSHQ14
+
+```{r geotherm-NSHQ14-full, warning=FALSE}
+plot_T_NSHQ14 <- NSHQ14_profile %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = NSHQ14_profile$T_C ~ NSHQ14_profile$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_NSHQ14 
+```
+
+```{r geotherm-NSHQ14-below-100m, warning=FALSE}
+NSHQ14_profile_below_100m <- NSHQ14_profile %>% filter(depth_sampled_mbgl > 100)
+
+plot_T_NSHQ14_below_100m <- NSHQ14_profile_below_100m %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = NSHQ14_profile_below_100m$T_C ~ NSHQ14_profile_below_100m$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+    theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_NSHQ14_below_100m 
+```
+
+```{r lm-T-d-NSHQ14-below-100m}
+# generate linear model
+model_T_d_NSHQ14_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = NSHQ14_profile_below_100m)
+
+# print model summary
+summary(model_T_d_NSHQ14_below_100m)
+```
+
+## BA3A
+
+```{r geotherm-BA3A-full, warning=FALSE}
+plot_T_BA3A <- BA3A_profile %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = BA3A_profile$T_C ~ BA3A_profile$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A 
+```
+
+```{r geotherm-BA3A-below-100m, warning=FALSE}
+BA3A_profile_below_100m <- BA3A_profile %>% filter(depth_sampled_mbgl > 100)
+
+plot_T_BA3A_below_100m <- BA3A_profile_below_100m %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = BA3A_profile_below_100m$T_C ~ BA3A_profile_below_100m$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+    theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A_below_100m 
+```
+
+```{r lm-T-d-BA3A-below-100m}
+# generate linear model
+model_T_d_BA3A_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = BA3A_profile_below_100m)
+
+# print model summary
+summary(model_T_d_BA3A_below_100m)
+```

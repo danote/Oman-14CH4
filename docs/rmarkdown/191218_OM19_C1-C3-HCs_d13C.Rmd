@@ -1,0 +1,428 @@
+---
+---
+---
+title: "Methane and short-chain alkane C isotope data processing for samples obtained in Oman in 2019"
+subtitle: "Source file: 191218_OM19_C1-C3-HCs_d13C.Rmd"
+author: "Daniel Nothaft"
+date: "`r format(Sys.Date(), '%d %b %Y')`"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: yes # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: show # change to hide to hide code by default
+editor_options:
+  chunk_output_type: inline
+---
+
+# Oman 2019 C$_1$-C$_6$ alkane $\delta^{13}$C - Introduction
+
+C$_1$-C$_6$ alkane $\delta^{13}$C was measured by GC-C-IRMS as described in the methods section of the manuscript. The following code steps through the data processing and calibration to convert measured values to values vs. the international reference standard (Vienna Pee Dee Belemnite, VPDB) using CH$_4$ isotope standards from USGS and Airgas. The gas samples processed in this document were collected in Oman in January 2019.
+
+# Load libraries
+
+```{r setup, warning=FALSE, message=FALSE}
+# load libraries
+library(tidyverse) # dplyr, tidyr, ggplot
+library(isoreader) # reading isotope data files
+library(isoprocessor) # processing isotope data files
+
+# global knitting options for automatic saving of all plots as .png and .pdf. Also sets cache directory.
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("fig_output/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input()))),
+  cache.path = file.path("cache/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input())))
+)
+```
+
+Data processed using the packages [isoreader](http://isoreader.kopflab.org) version `r packageVersion("isoreader")` and [isoprocessor](http://isoprocessor.kopflab.org/) version `r packageVersion("isoprocessor")`.
+
+# Load Data
+
+```{r load-data, message=FALSE}
+# read files
+iso_files_raw <-
+  file.path(
+    "data_raw/191218_OM19_C1-C3-HCs_d13C", "191218_OM19_C1-C3-HCs_d13C.cf.rds"
+  ) %>%
+    # read data files in parallel for fast read
+  iso_read_continuous_flow(parallel = TRUE)
+```
+
+# Process file info & peak table
+
+```{r remove-extraneous-files}
+# filter out unecessary files
+iso_files_raw <- iso_files_raw %>% iso_filter_files(file_id != "BF6013__100 ppm C1-C6 mix_1000.dxf" & file_id !=  "BF6014__CO2 zero_.dxf" & file_id != "BF6015__CO2 zero_.dxf" & file_id !=  "BF6016__CO2 zero_.dxf" & file_id !=  "BF6017__Linearity CO2_.dxf" & file_id !=  "BF6018__H-ISO1_00200.dxf" & file_id !=  "BF6023__516256_00100.dxf" & file_id !=  "BF6027__NSHQ14_BS1B_COG16001_00700.dxf")
+```
+
+```{r process-file-info}
+# process
+iso_files <- iso_files_raw %>%
+  # set peak table from vendor data table
+  iso_set_peak_table_from_auto_vendor_data_table() %>%
+  # rename key file info columns
+  iso_rename_file_info(id1 = `Identifier 1`, id2 = `Identifier 2`) %>%
+  # parse text info into numbers
+  iso_parse_file_info(number = Analysis) %>%
+  # process other file information that is specific to the naming conventions
+  # of this particular sequence
+  iso_mutate_file_info(
+    # was there seed oxidation?
+    seed_oxidation = ifelse(`Seed Oxidation` == "1", "yes", "no"),
+    # what was the injection volume?
+    inject_volume = parse_number(Comment) %>% iso_double_with_units("uL"),
+    # what folder are the data files in? (assuming folder = sequence)
+    folder = basename(dirname(file_path))
+  )
+```
+
+## Chromatograms
+
+Display chromatograms of samples and standards for CH$_4$ analyses.
+```{r chroms-C1}
+# plot the chromatograms
+chroms_C1 <- iso_files %>%
+  # select CH4 analyses
+  iso_filter_files(str_detect(`GC Method`, "C2") == FALSE) %>%
+  iso_plot_continuous_flow_data(
+     # select data and aesthetics
+    data = c(44),
+    color = id1
+  )
+
+# plot
+chroms_C1
+```
+
+Display chromatograms of samples for C$_2$-C$_6$ alkane analyses.
+```{r chroms-C2-C6}
+# plot the chromatograms
+chroms_C2_C6 <- iso_files %>%
+    # select C2-C6 alkane analyses
+  iso_filter_files(str_detect(`GC Method`, "C2") == TRUE) %>%
+  iso_plot_continuous_flow_data(
+    # select data and aesthetics
+    data = c(44),
+    color = id1
+  )
+
+# plot
+chroms_C2_C6
+```
+
+## Peak maps
+```{r peak-maps}
+# set peak maps
+peak_maps <-
+  tibble::tribble(
+    ~compound, ~ref_nr, ~`rt`,
+    # peak map data (row-by-row)
+    "CO2",          1,      39,
+    "CO2",          2,      74,
+    "CO2",          3,      108,
+    "CO2",          4,      143,
+    "CH4",          NA,     284,
+    "CO2",          NA,     723,
+    "C2",           NA,     1402,
+    "C3",           NA,     2525,
+    "C4-iso",       NA,     3082,
+    "C4-n",         NA,     3167,
+    "C5-iso",       NA,     3638,
+    "C5-n",         NA,     3692,
+    "C6",           NA,     4145
+  )
+
+# print peak maps
+peak_maps %>% knitr::kable(digits = 0)
+```
+
+## Fetch peak table
+```{r map-peaks}
+# identify peaks
+peak_table_w_ids <- iso_files %>%
+  iso_map_peaks(peak_maps) %>%
+  # peak table
+  iso_get_peak_table(include_file_info = everything())
+```
+
+Display an example chromatogram for CH$_4$ with mapped peaks. Note: the small, late peak is CO$_2$, which was partially backflushed.
+```{r chroms-C1-mapped}
+# make plot
+chroms_C1_mapped <- iso_files %>%
+  iso_filter_files(str_detect(id1, "WAB71_BS1B_COG16000") == TRUE & str_detect(`GC Method`, "C2") == FALSE) %>%
+  iso_plot_continuous_flow_data(
+    # select data and aesthetics
+    data = c(44),
+    color = id1,
+    # provide our peak table with ids
+    peak_table = peak_table_w_ids,
+    # define peak labels, this can be any valid expression
+    peak_label = iso_format(id = peak_info),
+    # specify which labels to show (removing the !is_identified or putting a
+    # restriction by retention time can help a lot with busy chromatograms)
+    peak_label_filter = is_identified | !is_identified | is_missing
+  )
+
+# print plot
+chroms_C1_mapped
+```
+
+Display an example chromatogram of C$_2$-C$_6$ alkane analyses with mapped peaks.
+```{r chroms-C2-C6-mapped}
+# plot the chromatograms
+chroms_C2_C6_mapped <- iso_files %>%
+    # select C2-C6 alkane analyses
+  iso_filter_files(file_id == "BF6029__NSHQ14_BS1B_COG16001_03000.dxf") %>%
+  iso_plot_continuous_flow_data(
+    # select data and aesthetics
+    data = c(44),
+    color = file_id,
+    # zoom in on time interval
+    time_interval = c(1250, 4200),
+    # provide our peak table with ids
+    peak_table = peak_table_w_ids,
+    # define peak labels, this can be any valid expression
+    peak_label = iso_format(id = peak_info),
+    # specify which labels to show (removing the !is_identified or putting a
+    # restriction by retention time can help a lot with busy chromatograms)
+    peak_label_filter = is_identified
+  ) +
+  # customize resulting ggplot
+  theme(legend.position = "bottom")
+
+# print
+chroms_C2_C6_mapped
+```
+
+## Select analyte peaks
+```{r select-analyte-peaks}
+# focus on analyte peaks
+
+ # We separately tested and determined the limit of quantitation (defined here as amplitude yielding d13C sample standard deviation of 0.6 per mil over studied amplitude range) for our intrument setup.
+
+peak_table_analytes <- peak_table_w_ids %>% 
+    filter(amp44 > 300)
+
+  # omit reference peaks for downstream processing (i.e. analyte peaks only) and select only peaks where good chromatographic separation has been demonstrated. Note: baseline separation of C5+ alkanes was not comprehensively determined for the chromatographic method used for these samples, so only C1-C4 alkane data are used for downstream processing.
+
+peak_table_analytes <- peak_table_analytes %>%  
+  filter(compound == "CH4" | compound == "C2" | compound == "C3" | compound == "C4-n" | compound == "C4-iso")
+
+# print
+peak_table_analytes
+```
+
+# Isotope standard values
+
+## Load isotope standards
+
+```{r add-stnd-data}
+# add stnd accepted values
+standards <-
+  tibble::tribble(
+    ~id1,                 ~true_d13C,
+    "T-ISO1",			        -38.3,
+    "H-ISO1",			        -23.9,
+    "Bio 1.0 mid",		    -68.6,
+    "Beecher Island II",  -61.39,
+    "516256",             -43.8,
+    "043332T",            -39.82,
+    
+  ) %>%
+  mutate(
+    true_d13C = iso_double_with_units(true_d13C, "permil")
+  )
+
+# print
+standards %>% knitr::kable(digits = 2)
+```
+
+## Add isotope standards
+```{r add-stnds-to-peak-table}
+peak_table_w_stds <-
+  peak_table_analytes %>%
+  iso_add_standards(stds = standards, match_by = c("id1"))
+```
+
+## Initial overview plots of data
+
+Accepted $\delta^{13}\text{C}$ (VPDB) plotted against measured $\delta^{13}\text{C}$ (vs. lab CO$_2$ tank) of standards. Coefficients and $\text{r}^2$ value of regression reported further below.
+```{r plot-stnd-d13C-measured-vs-accepted}
+# generate plot
+plot_stnds_accepted_measured <- peak_table_w_stds %>% filter(is_std_peak == TRUE) %>%
+  # use generic data plot function
+  iso_plot_data(
+    x = true_d13C,
+    y = d13C,
+    color = id1,
+    points = TRUE
+  )
+
+# print
+plot_stnds_accepted_measured
+```
+
+Standards are in small amplitude range, but separate tests showed that there is an acceptably small trend of $\delta^{13}$C vs. peak amplitude over the range of peak amplitudes in sample analyses reported here.
+```{r plot-d13C-vs-amp44}
+# generate plot
+plot_amp_d13C <- peak_table_w_stds %>%
+  # use generic data plot function
+  iso_plot_data(
+    x = amp44, y = d13C, color = is_std_peak,
+    points = TRUE
+  )
+
+# print
+plot_amp_d13C
+```
+
+Standards cover the sample time range. Standard delta analyses appear pretty constant over time.
+```{r plot-d13C-vs-time}
+# generate plot
+plot_d13C_time <- peak_table_w_stds %>%
+  # use generic data plot function
+  iso_plot_data(
+    x = file_datetime, y = d13C, color = is_std_peak,
+    points = TRUE
+  )
+
+# print
+plot_d13C_time
+```
+
+# Calibration
+
+## Generate a calibration with linear regression
+
+Note: Separate testing indicated that the effect of peak amplitude on $\delta^{13}$C (i.e. linearity) was within a repeatability of 0.6 per mil over the range of peak amplitudes measured here. Since only CH$_4$ isotope standards were available to us for testing, and the peak amplitude/$\delta^{13}$C effect observed for these standards may differ from those observed for $\text{C}_{2}-\text{C}_6$ alkanes, which have different peak shapes than CH$_4$, calibrations based on peak amplitude are not applied here.
+
+```{r generate-calibs}
+calibs <- peak_table_w_stds %>%
+  # prepare for calibration
+  iso_prepare_for_calibration() %>%
+  # run calibrations
+  iso_generate_calibration(
+    model = c(
+      # reference scale correction
+      delta_only = lm(d13C ~ true_d13C),
+      # multivariate with delta and the datetime (i.e. checking for temporal drift)
+      delta_and_time = lm(d13C ~ true_d13C + file_datetime)
+    ),
+    # specify which peaks to include in the calibration, here:
+    # - all std_peaks (this filter should always be included!)
+    use_in_calib = is_std_peak
+  )
+```
+
+## Coefficients
+
+```{r show-coefs}
+# look at coefficients and summary
+calibs %>%
+  # unnest calibration parameters
+  iso_get_calibration_parameters(
+    select_from_coefs =
+      c(term, estimate, SE = std.error, signif),
+    select_from_summary =
+      c(fit_R2 = adj.r.squared, fit_RMSD = deviance, residual_df = df.residual)) %>%
+  arrange(term) %>%
+  knitr::kable(digits = 4)
+```
+
+## Visualize Calibration Parameters
+
+The visualization of the calibration parameters reveals that as expected the scale contraction is statistically relevant (`***` = p.value < 0.001). Dt (drift) is not significant.
+
+```{r visual-calib-params, fig.width = 8, fig.height = 11, message=FALSE}
+calibs %>% iso_plot_calibration_parameters()
+```
+
+## Apply global calibration
+```{r apply-calib, cache=TRUE}
+calibs_applied <-
+  calibs %>%
+  # which calibration to use? can include multiple if desired to see the result
+  # in this case, the amplitude- and time-conscious calibrations are not necessary
+  filter(calib == "delta_only") %>%
+  # apply calibration indication what should be calculated
+  iso_apply_calibration(true_d13C, calculate_error = TRUE)
+# calibration ranges
+calibs_with_ranges <-
+  calibs_applied %>%
+  # evaluate calibration range for the measured amplitude and predicted d13C
+  iso_evaluate_calibration_range(amp44, true_d13C_pred)
+# show calibration ranges
+calibs_with_ranges %>%
+  iso_get_calibration_range() %>%
+  iso_remove_list_columns() %>%
+  knitr::kable(d = 2)
+# create calibrated peak table
+peak_table_calibrated <- calibs_with_ranges %>%
+  iso_get_calibration_data()
+```
+
+# Inspect Calibration
+
+## Overview
+
+As noted above, standards are in small amplitude range, but separate tests showed that there is an acceptably small trend of $\delta^{13}$C vs. peak amplitude over this range of analyses, which make all the sample analyses valid on the basis of their peak amplitudes. Several points are above calibrated delta range, but it is hard to find standards as $^{13}$C-enriched as these samples, so there is not much that can be done about that. Anyway, the calibration is quite linear over a fairly large delta range, so these data should be fine.
+```{r plot-calib-range}
+# replicate earlier overview plot but now with the calibrated delta values
+# and with a highlight of the calibration ranges and which points are in range
+peak_table_calibrated %>%
+  # focus on identified peaks (comment out this line to see ALL peaks)
+  filter(!is.na(compound)) %>%
+  # visualize with convenience function iso_plot_data
+  iso_plot_data(
+    # choose x and y (multiple y possible)
+    x = amp44, y = true_d13C_pred,
+    # choose aesthetics
+    color = in_range, shape = is_std_peak, label = compound, size = 3,
+    # decide what geoms to include
+    points = TRUE
+  ) %>%
+  # highlight calibration range
+  iso_mark_calibration_range() +
+  # legend
+  theme(legend.position = "bottom", legend.direction = "vertical")
+```
+
+## Summary
+```{r summary}
+# generate data summary and filter out suspect data
+peak_data <-
+  peak_table_calibrated %>%
+  # focus on identified peaks in the samples
+  filter(!is.na(compound)) %>% filter((file_id == "BF6030__NSHQ14_BS1B_COG16001_10000.dxf" & compound != "C2") | file_id != "BF6030__NSHQ14_BS1B_COG16001_10000.dxf") # filter this 10 mL inject of NSHQ14 for ethane because there was large background due to CH4 during elution of ethane
+
+# summarize replicates
+peak_data_summary <-
+  peak_data %>%
+  # summarize for each sample and compound
+  group_by(id1, compound) %>%
+  iso_summarize_data_table(amp44, true_d13C_pred, true_d13C_pred_se) %>% select(-`true_d13C_pred_se sd`)
+
+# add column in which d13C is rounded to tenth of permil place
+peak_data_summary <- peak_data_summary %>% mutate(`d13C rounded tenth` = round(`true_d13C_pred mean`, 1))
+
+# print
+peak_data_summary %>% iso_make_units_explicit() %>% knitr::kable(d = 2)
+```
+
+# Export
+
+Save data to xlsx spreadsheet.
+```{r export}
+# export the global calibration with all its information and data to Excel
+peak_table_calibrated %>%
+  iso_export_calibration_to_excel(
+    filepath = format(Sys.Date(), "data_output/%Y%m%d_OM19_C1-C6_HC_d13C_data_calibrated.xlsx"),
+    # include data summary as an additional useful tab
+    `data summary` = peak_data_summary
+  )
+```
