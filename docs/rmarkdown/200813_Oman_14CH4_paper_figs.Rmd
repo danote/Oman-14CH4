@@ -63,6 +63,9 @@ Load in comparison data from the literature
 # read comparison data from literature
 data_literature <-  read_excel("data_raw/Summary_metadata/CH4_isotope_literature_data.xlsx", na = "NA")
 
+# Filter for only samples mentioning chromite or chromitite for Greek rock crushings
+data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_detect(Lithology, "hromit") == TRUE, !is.na(site)))
+
 # print
 data_literature
 ```
@@ -97,11 +100,11 @@ fill_5_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#
 
 # levels (for order of appearance in legend)
 
-data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II", "Kidd Creek", "Sabatier reaction 70˚C to 90˚C"))
+data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek"))
 
 # shapes
 
-shapes_all_sites_named <- c("Oman/UAE" = 21, "Philippines" = 0, "Mid-Cayman Rise" = 2,  "Ashadze II" = 5, "Kidd Creek" = 4, "Sabatier reaction 70˚C to 90˚C" = 3)
+shapes_all_sites_named <- c("Oman/UAE" = 21, "Philippines" = 0, "Mid-Cayman Rise" = 2,  "Ashadze II" = 5, "Kidd Creek" = 4, "Greece" = 3)
 
 shapes_fills <- c(22, 23, 24, 21)
 ```
@@ -653,7 +656,7 @@ C1_C2_C3_plot <-
     labels = trans_format('log10', math_format(10^.x)),
     limits = c(.1, 1e5), expand = c(0,0),
     name = latex2exp::TeX("$C_1$/($C_{2}$+$C_{3}$)"))+
-    scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}$$\\,$/$\\,$$\\lbrack$‰ VPDB$\\rbrack$"), limits = c(-90, 15), expand = c(0,0), sec.axis = dup_axis()) +
+    scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}$$\\,$/$\\,$$\\lbrack$‰ VPDB$\\rbrack$"), limits = c(-90, 15), expand = c(0,0)) +
 
   # symbol styling
   scale_shape_manual(values = shapes_all_sites_named) +
@@ -663,19 +666,17 @@ C1_C2_C3_plot <-
   # design
   theme_classic(base_size = 12)+
   theme(
-    axis.title.x = element_blank(),
-    axis.text.x.bottom = element_blank(),
-    axis.ticks.x.bottom = element_blank(),
-    axis.line.x.bottom = element_blank(),
-    plot.margin = margin(1, 1, 5, 1, "pt"),
+    # axis.title.x = element_blank(),
+    # axis.text.x.bottom = element_blank(),
+    # axis.ticks.x.bottom = element_blank(),
+    # axis.line.x.bottom = element_blank(),
+    plot.margin = margin(5, 1, 5, 1, "pt"),
     legend.position = "none"
     )
 
 # print plot
 C1_C2_C3_plot
 ```
-
-
 
 # Alkanes $\delta^{13}$C plot
 
@@ -758,7 +759,7 @@ data_alkanes_d13C_gathered_lit
 
 ## Plot
 ### Plot data
-```{r alkanes-d13C-oman-wells-and-lit-plot, fig.height=6, fig.width=3.42, warning=FALSE}
+```{r alkanes-d13C-oman-wells-and-lit-plot, fig.height=6.5, fig.width=3.42, warning=FALSE}
 # create plot
 alkanes_d13C_oman_wells_and_lit_plot <- ggplot() +
   
@@ -781,7 +782,7 @@ alkanes_d13C_oman_wells_and_lit_plot <- ggplot() +
     x = C_atoms,
     y = d13C_permil_VPDB,
     shape = site,
-    color = sample_type)) +
+    color = sample_type), alpha = 0.7) +
   
   # Plot Oman well data
   # lines
@@ -833,93 +834,6 @@ alkanes_d13C_oman_wells_and_lit_plot <- ggplot() +
 
 # print plot
 alkanes_d13C_oman_wells_and_lit_plot
-```
-
-### Extract color legend
-Create dummy plot
-```{r alkanes-d13C-oman-wells-and-lit-plot-leg, fig.width = 3.54, fig.height = 6}
-# create plot
-alkanes_d13C_oman_wells_and_lit_plot_for_col_leg <- ggplot() +
-  
-  # Add NSHQ14 label
-  annotate("text", label = "2017", x = 1.15, y = 1.2, label.size = 0.22) +
-  annotate("text", label = "2019", x = 1.15, y = 8.2, label.size = 0.22) +
-  
-  # Plot literature data
-  # # lines
-  # geom_line(data = data_alkanes_d13C_gathered_lit %>% filter(C_atoms < 4),
-  #   mapping =  aes(
-  #   x = C_atoms,
-  #   y = d13C_permil_VPDB,
-  #   color = sample_type,
-  #   group = Sample), alpha = 0.1) +
-  
-  # points
-  geom_point(data = data_alkanes_d13C_gathered_lit %>% filter(C_atoms < 4),
-    mapping =  aes(
-    x = C_atoms,
-    y = d13C_permil_VPDB,
-    # shape = site,
-    color = sample_type)) +
-  
-  # Plot Oman well data
-  # # lines
-  # geom_line(data = data_alkanes_d13C_gathered %>% filter(C_atoms < 4),
-  #   mapping =  aes(
-  #   x = C_atoms,
-  #   y = d13C_permil_VPDB,
-  #   group = year_sampled,
-  #   color = sample_type), alpha = 1, size = .6) +
-
-  # error bars
-  geom_linerange(data = data_alkanes_d13C_gathered,
-    mapping =  aes(
-    x = C_atoms,
-    ymax = d13C_permil_VPDB + uncertainty_d13C_permil,
-    ymin = d13C_permil_VPDB - uncertainty_d13C_permil,
-    color = sample_type), show.legend = FALSE) +
-  # points
-  geom_point(data = data_alkanes_d13C_gathered,
-    mapping =  aes(
-    x = C_atoms,
-    y = d13C_permil_VPDB,
-    # shape = site,
-    color = sample_type,
-    fill = sampling_site)) +
-  # 
-  # symbol styling
-  # scale_shape_manual(name = "sample site",  values = shapes_all_sites_named, guide = guide_legend(order = 1)) +
-    scale_fill_manual(values = fill_4_wells_named, guide = FALSE) +
-    scale_color_manual(values =  color_rock_crush_named, name = "sample type", guide = guide_legend(nrow = 1, order = 3)) +
-    guides(color = guide_legend(override.aes=list(shape=21))) +
-
-  # axis styling
-  scale_x_continuous(name = "C atoms in alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
-  scale_y_continuous(name = latex2exp::TeX("$\\delta ^{13}C$$\\,$/$\\,$\\lbrack$$‰ VPDB$\\rbrack$"))+
-  
-  # design
-  theme_classic(base_size = 12) +
-  theme(
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
-    panel.grid.major.y = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    legend.position = "bottom",
-    legend.direction = "vertical",
-    plot.margin = margin(1, 3, 0, 1, "pt")
-    )
-
-```
-
-Extract color legend
-```{r "leg_color-plot", fig.width = 1.5, fig.height = 0.7, warning = FALSE, message=FALSE}
-# show just color legend
-leg_color <- get_legend(alkanes_d13C_oman_wells_and_lit_plot_for_col_leg)
-
-leg_color_plot <- plot_grid(leg_color
-)
-
-leg_color_plot
 ```
 
 # CH$_4$ Fraction modern facet grid plot
@@ -1260,3 +1174,43 @@ data_CD_gathered_NSHQ14 %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_perm
   scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
   theme_classic()
 ```
+
+# $\alpha_{\text{methane/water}}$
+
+```{r}
+# solve CH4-H2O equilibrium (Horibe and Craig, 1995)
+eq_CH4_H2O <- c(35, 270) # input temperatures, 35˚C for Samail Ophiolite groundwater, 270˚C for CH4-H2 closure temperature (Wang et al., 2018)
+eq_CH4_H2O <- as.data.frame(eq_CH4_H2O) # convert above vector into data frame
+eq_CH4_H2O <- eq_CH4_H2O %>% rename(temp_C = eq_CH4_H2O) # rename column
+eq_CH4_H2O <- eq_CH4_H2O %>% mutate(temp_K = temp_C + 273.15) # add column for temperature in Kelvin
+eq_CH4_H2O <- eq_CH4_H2O %>% mutate(alph_H2O_CH4 = 1.0997 + 8456 / temp_K^2 + 0.9611e9 / temp_K^4 - 27.82e12 / temp_K^6) # calculate alpha H2O/CH4 as function of temperature using equation from Horibe and Craig (1995)
+eq_CH4_H2O <- eq_CH4_H2O %>% mutate(delta_H2O_VSMOW = 0) # use VSMOW as H2O dD
+eq_CH4_H2O <- eq_CH4_H2O %>% mutate(delta_CH4_VSMOW = (delta_H2O_VSMOW + 1)/(alph_H2O_CH4) - 1) # calculate dD CH4
+eq_CH4_H2O <- eq_CH4_H2O %>% mutate(delta_CH4_VSMOW_permil = delta_CH4_VSMOW * 1000) # convert to permil
+
+eq_CH4_H2O
+```
+# C$_1$ / (C$_2$ + C$_3$) vs. $\text{F}^{14}\text{C}_{\text{CH}_4}$ at NSHQ14
+
+```{r data_C1_C2_C3_NSHQ14_2017_thru_2019}
+data_C1_C2_C3_NSHQ14_2017_thru_2019 <- data_C1_C2_C3 %>% filter(sampling_site == "NSHQ14") %>% filter(year_sampled >= 2017 & year_sampled <= 2019) %>% filter(depth_fluid_intake_mbct == 85) %>%  select(year_sampled, C1_over_C2_plus_C3, notes)
+
+data_C1_C2_C3_NSHQ14_2017_thru_2019
+```
+
+```{r join_14C_to_C1_C2_C3_data}
+data_C1_C2_C3_NSHQ14_2017_thru_2019_14C <- data_C1_C2_C3_NSHQ14_2017_thru_2019 %>% left_join(data_14CH4_NSHQ14 %>% select(year_sampled, notes, CH4_Fm_UCIAMS), by = c("year_sampled", "notes"))
+
+data_C1_C2_C3_NSHQ14_2017_thru_2019_14C
+```
+
+```{r plot-C1_C2_C3-14CH4-NSHQ14, warning=FALSE}
+data_C1_C2_C3_NSHQ14_2017_thru_2019_14C %>% ggplot(aes(x = CH4_Fm_UCIAMS, y = C1_over_C2_plus_C3, color = as.character(year_sampled), shape = notes))+
+  geom_point()+
+  scale_shape_discrete(na.value = 17) +
+  scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
+  scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
+  scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
+  theme_classic()
+```
+
