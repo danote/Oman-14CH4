@@ -1212,3 +1212,21 @@ data_C1_C2_C3_NSHQ14_2017_thru_2019_14C %>% ggplot(aes(x = CH4_Fm_UCIAMS, y = C1
   theme_classic()
 ```
 
+# Rate comparisons
+
+```{r}
+NSHQ14_2017_max_methanogenesis_rate_pmol_per_mL_per_day <- 18 # Fones et al. 2019
+
+NSHQ14_2017_max_methanogenesis_rate_pmol_per_L_per_day <- NSHQ14_2017_max_methanogenesis_rate_pmol_per_mL_per_day * 1000
+
+NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day <- NSHQ14_2017_max_methanogenesis_rate_pmol_per_L_per_day / 1e6
+
+conc_modern_CH4_NSHQ14_2015_umol_per_L <- 20
+
+time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day <- conc_modern_CH4_NSHQ14_2015_umol_per_L / NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day
+
+time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day / 365
+
+time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
+```
+
