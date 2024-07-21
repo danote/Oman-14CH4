@@ -1213,7 +1213,35 @@ data_C1_C2_C3_NSHQ14_2017_thru_2019_14C %>% ggplot(aes(x = CH4_Fm_UCIAMS, y = C1
 ```
 
 # Rate comparisons
+Methane concentration in 2017 in $\mu\text{mol}\,\text{L}^{-1}$
+```{r}
+conc_CH4_NSHQ14_2017_umol_per_L <- data %>% filter(sampling_site == "NSHQ14") %>%
+  filter(year_sampled == 2017) %>%
+  filter(depth_fluid_intake_mbct == 85) %>%
+  select(CH4_uM) %>% as.numeric()
 
+conc_CH4_NSHQ14_2017_umol_per_L
+```
+
+Methane fraction modern in 2017
+```{r}
+Fm_CH4_NSHQ14_2017 <- data %>% filter(sampling_site == "NSHQ14") %>%
+  filter(year_sampled == 2017) %>%
+  filter(depth_fluid_intake_mbct == 85) %>%
+  select(CH4_Fm_UCIAMS) %>% as.numeric()
+
+Fm_CH4_NSHQ14_2017
+```
+
+Concentration of modern methane in 2017
+```{r}
+conc_modern_CH4_NSHQ14_2017_umol_per_L <- conc_CH4_NSHQ14_2017_umol_per_L * Fm_CH4_NSHQ14_2017
+
+conc_modern_CH4_NSHQ14_2017_umol_per_L
+```
+
+Rate comparison with Fones et al. 2019 "Physiological adaptations to serpentinization in the Samail Ophiolite, Oman" ISME J
+Calculate minimum time to form modern methane by microbial methanogenesis, in years
 ```{r}
 NSHQ14_2017_max_methanogenesis_rate_pmol_per_mL_per_day <- 18 # Fones et al. 2019
 
@@ -1221,12 +1249,9 @@ NSHQ14_2017_max_methanogenesis_rate_pmol_per_L_per_day <- NSHQ14_2017_max_methan
 
 NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day <- NSHQ14_2017_max_methanogenesis_rate_pmol_per_L_per_day / 1e6
 
-conc_modern_CH4_NSHQ14_2015_umol_per_L <- 20
+min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day <- conc_modern_CH4_NSHQ14_2017_umol_per_L / NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day
 
-time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day <- conc_modern_CH4_NSHQ14_2015_umol_per_L / NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day
+min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day / 365
 
-time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day / 365
-
-time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
+min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
 ```
-
