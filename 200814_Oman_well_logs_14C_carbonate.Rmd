@@ -161,6 +161,13 @@ NSHQ14_profile <- NSHQ14_profile %>% mutate(Eh_mV = ORP_mV_Ag_AgCl + Ag_AgCl_E_T
 # print some summary statistics
 NSHQ14_profile %>% select(Eh_mV) %>% summary()
 ```
+Checking values around 20 m and 25 m
+```{r check-vals-20-25m}
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 19.99 & depth_sampled_mbgl < 20.01) %>% select(depth_sampled_mbgl, pH, Eh_mV)
+
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 24.99 & depth_sampled_mbgl < 25.01) %>% select(depth_sampled_mbgl, pH, Eh_mV)
+```
+
 
 ## Hydrostatic pressure
 Pressure will be used to assess calculated stability limit of water with respect to molecular hydrogen.
