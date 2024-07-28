@@ -1640,13 +1640,13 @@ docs_files &lt;-
 docs_files %&gt;% select(-target_folder) %&gt;% knitr::kable()</code></pre>
 <table>
 <colgroup>
-<col width="3%" />
-<col width="15%" />
-<col width="21%" />
+<col width="4%" />
+<col width="16%" />
+<col width="23%" />
 <col width="13%" />
-<col width="22%" />
-<col width="9%" />
-<col width="9%" />
+<col width="23%" />
+<col width="10%" />
+<col width="4%" />
 <col width="3%" />
 </colgroup>
 <thead>
@@ -1698,19 +1698,19 @@ docs_files %&gt;% select(-target_folder) %&gt;% knitr::kable()</code></pre>
 <td align="left">docs/rmarkdown/200813_Oman_14CH4_paper_figs.Rmd</td>
 <td align="left">87ec43514c8f7497711e581214737955</td>
 <td align="left">docs/rmarkdown/200813_Oman_14CH4_paper_figs.html</td>
-<td align="left">2020-09-25 14:25:45 MDT</td>
-<td align="left">2024-07-27 22:29:55 EDT</td>
-<td align="left">TRUE</td>
+<td align="left">2024-07-27 22:56:09 EDT</td>
+<td align="left">NA</td>
+<td align="left">FALSE</td>
 </tr>
 <tr class="odd">
 <td align="left">RMarkdown</td>
 <td align="left">200814_Oman_well_logs_14C_carbonate.Rmd</td>
 <td align="left">docs/rmarkdown/200814_Oman_well_logs_14C_carbonate.Rmd</td>
-<td align="left">91648418f1c9012a7133862f7355d4cb</td>
+<td align="left">efecdb470f4213829344a2674b07e39b</td>
 <td align="left">docs/rmarkdown/200814_Oman_well_logs_14C_carbonate.html</td>
 <td align="left">2020-09-18 11:26:25 MDT</td>
 <td align="left">NA</td>
-<td align="left">FALSE</td>
+<td align="left">TRUE</td>
 </tr>
 <tr class="even">
 <td align="left">RMarkdown</td>
@@ -1821,21 +1821,25 @@ rendered_doc_files &lt;- docs_files %&gt;%
 </h1>
 <pre><code>source file has not changed, docs file will not be re-generated (delete file in docs folder to force re-generation)</code></pre>
 <h1>
-200813_Oman_14CH4_paper_figs.Rmd (OK)
+200813_Oman_14CH4_paper_figs.Rmd (NC)
+</h1>
+<pre><code>source file has not changed, docs file will not be re-generated (delete file in docs folder to force re-generation)</code></pre>
+<h1>
+200814_Oman_well_logs_14C_carbonate.Rmd (ERROR)
 </h1>
 <pre><code>
 
-processing file: 200813_Oman_14CH4_paper_figs.Rmd
-  |                  |          |   0%  |                  |          |   1%                                                              [setup]                                                       |                  |          |   2%                                                               |                  |          |   3% [source]                                                      |                  |          |   4%                                                              [load-Oman-well-data]                                         |                  |          |   5%                                                               |                  |.         |   6% [load-lit-data]                                                                                                            |                  |.         |   7% [set-plot-aesthetics]                                         |                  |.         |   8%                                                              [get-water-isotopes]                                          |                  |.         |   9%                                                               |                  |.         |  10% [summ-water-isotopes-well-year]                               |                  |.         |  11%                                                              [summ-water-isotopes-well]                                    |                  |.         |  12%                                                               |                  |.         |  13% [summ-water-isotopes]                                                                                                      |                  |.         |  14% [MWL-plot]                                                    |                  |.         |  15%                                                               |                  |..        |  15% [summ-CD]                                                     |                  |..        |  16%                                                               |                  |..        |  17% [summ-WAB188]                                                 |                  |..        |  18%                                                              [summ-WAB188-CH4-d13C]                                        |                  |..        |  19%                                                               |                  |..        |  20% [summ-WAB188-DIC-all-years]                                                                                                |                  |..        |  21% [summ-WAB188-DIC]                                             |                  |..        |  22%                                                               |                  |..        |  23% [summ-WAB71-d13C-CH4-all-years]                                                                                            |                  |..        |  24% [summ-WAB71-d13C-CH4]                                         |                  |..        |  25%                                                               |                  |...       |  25% [summ-CM2A-d13C-CH4-all-labs]                                 |                  |...       |  26%                                                               |                  |...       |  27% [summ-CM2A-d13C]                                                                                                           |                  |...       |  28% [summ-CD-all-wells-interlab]                                  |                  |...       |  29%                                                               |                  |...       |  30% [summ-CD-all-wells-interannual]                                                                                            |                  |...       |  31% [get-CH4-H2-conc-data]                                        |                  |...       |  32%                                                              [process-CH4-H2-conc-data]                                    |                  |...       |  33%                                                               |                  |...       |  34% [H2-CH4-plot]                                                 |                  |...       |  35%                                                               |                  |....      |  35% [get_CD_data]                                                 |                  |....      |  36%                                                               |                  |....      |  37% [CD-plot]                                                                                                                  |                  |....      |  38% [extract-fill-legend]                                         |                  |....      |  39%                                                              [leg-fill-plot]                                               |                  |....      |  40%                                                               |                  |....      |  41% [get-Oman-C1-C2-C3-data]                                      |                  |....      |  42%                                                              [get-lit-C1-C2-C3-data]                                       |                  |....      |  43%                                                               |                  |....      |  44% [C1_C2_C3_plot]                                                                                                            |                  |.....     |  45% [get-alkane-d13C-data]                                        |                  |.....     |  46%                                                              [gather-alkane-d13C-data]                                     |                  |.....     |  47%                                                               |                  |.....     |  48% [mutate-alkane-d13C-data-site]                                |                  |.....     |  49%                                                              [get-alkane-d13C-lit-data]                                    |                  |.....     |  50%                                                               |                  |.....     |  51% [gather-alkane-d13C-data-lit]                                                                                              |                  |.....     |  52% [alkanes-d13C-oman-wells-and-lit-plot]                        |                  |.....     |  53%                                                               |                  |.....     |  54% [get-14CH4-data]                                                                                                           |                  |.....     |  55% [filter-14CH4-for-NSHQ14]                                     |                  |......    |  56%                                                              [pivot-longer-14CH4-data]                                     |                  |......    |  57%                                                               |                  |......    |  58% [pivot-longer-14CH4-data-again]                                                                                            |                  |......    |  59% [14CH4-tex]                                                   |                  |......    |  60%                                                               |                  |......    |  61% [plot-CH4_F14C-d13C-dD-lab-color]                                                                                          |                  |......    |  62% [plot-CH4_F14C-d13C-dD-year-color-shape]                      |                  |......    |  63%                                                              [plot-CH4_F14C-d13C-dD-year-color-shape-clean]                |                  |......    |  64%                                                               |                  |......    |  65% [plot-CH4_F14C-d13C-dD-year-color-shape-clean-letter-tagged]  |                  |.......   |  65%                                                               |                  |.......   |  66% [cor-test-d13C-Fm]                                            |                  |.......   |  67%                                                               |                  |.......   |  68% [lm-d13C-Fm]                                                                                                               |                  |.......   |  69% [predict-d13C]                                                |                  |.......   |  70%                                                              [plot-d13C-Fm-w-reg]                                          |                  |.......   |  71%                                                               |                  |.......   |  72% [cor-test-D-Fm]                                               |                  |.......   |  73%                                                              [lm-D-Fm]                                                     |                  |.......   |  74%                                                               |                  |.......   |  75% [predict-dD]                                                  |                  |........  |  75%                                                               |                  |........  |  76% [plot-D-Fm-w-reg]                                             |                  |........  |  77%                                                              [cor-test-D-13C-w-paired-14CH4]                               |                  |........  |  78%                                                               |                  |........  |  79% [lm-D-13C-w-paired-14CH4]                                     |                  |........  |  80%                                                              [plot-D-13C-w-reg-w-paired-14CH4]                             |                  |........  |  81%                                                               |                  |........  |  82% [get-CD-isotope-data-for-NSHQ14]                                                                                           |                  |........  |  83% [CD_NSHQ14_n]                                                 |                  |........  |  84%                                                               |                  |........  |  85% [cor-test-D-13C-2014-2019]                                    |                  |......... |  85%                                                               |                  |......... |  86% [lm-D-13C-2014-2019]                                          |                  |......... |  87%                                                              [plot-D-13C-w-reg-2014-2019]                                  |                  |......... |  88%                                                               |                  |......... |  89% [unnamed-chunk-1]                                                                                                          |                  |......... |  90% [data_C1_C2_C3_NSHQ14_2017_thru_2019]                         |                  |......... |  91%                                                               |                  |......... |  92% [join_14C_to_C1_C2_C3_data]                                                                                                |                  |......... |  93% [plot-C1_C2_C3-14CH4-NSHQ14]                                  |                  |......... |  94%                                                              [conc-CH4-NSHQ14-2017]                                        |                  |..........|  95%                                                               |                  |..........|  96% [F14C-CH4-NSHQ14-2017]                                                                                                     |                  |..........|  97% [conc-modern-CH4-NSHQ14-2017]                                 |                  |..........|  98%                                                               |                  |..........|  99% [methanogenesis-rates-Fones]                                                                                               |                  |..........| 100% [min-methanogenesis-time]                                                                                                                                                                                          
-output file: 200813_Oman_14CH4_paper_figs.knit.md
+processing file: 200814_Oman_well_logs_14C_carbonate.Rmd
+  |                         |                 |   0%  |                         |                 |   1%                                                       |                         |                 |   2% [setup]                                               |                         |.                |   3%                                                       |                         |.                |   4% [source]                                              |                         |.                |   5%                                                       |                         |.                |   6% [load-data]                                           |                         |.                |   7%                                                       |                         |.                |   8% [head-vein-types]                                     |                         |..               |   9%                                                       |                         |..               |  10% [focus-carb-veins]                                    |                         |..               |  11%                                                       |                         |..               |  12% [BA3A-carbonate-vein-histogram]                       |                         |..               |  13%                                                       |                         |..               |  14% [get-relevant-log-data-NSHQ14]                        |                         |...              |  15%                                                       |                         |...              |  16% [subset-and-print-log-NSHQ14]                         |                         |...              |  18%                                                       |                         |...              |  19% [plot-Ag-AgCl-SHE-conversion]                         |                         |...              |  20%                                                       |                         |....             |  21% [save-lm-Ag-AgCl-SHE]                                 |                         |....             |  22%                                                       |                         |....             |  23% [save-lm-Ag-AgCl-SHE-slope]                           |                         |....             |  24%                                                       |                         |....             |  25% [save-lm-Ag-AgCl-SHE-int]                             |                         |....             |  26%                                                       |                         |.....            |  27% [apply-Ag-AgCl-SHE-conversion-NSHQ14]                 |                         |.....            |  28%                                                       |                         |.....            |  29% [check-vals-20-25m]                                 Error in `select()`:
+! Can&#39;t select columns that don&#39;t exist.
+✖ Column `cond_mS_cm` doesn&#39;t exist.
+Backtrace:
+ 1. ... %&gt;% select(depth_sampled_mbgl, pH, Eh_mV, cond_mS_cm)
+ 3. dplyr:::select.data.frame(., depth_sampled_mbgl, pH, Eh_mV, cond_mS_cm)
 
-/Applications/RStudio.app/Contents/Resources/app/quarto/bin/tools/x86_64/pandoc +RTS -K512m -RTS 200813_Oman_14CH4_paper_figs.knit.md --to html4 --from markdown+autolink_bare_uris+tex_math_single_backslash --output docs/rmarkdown/200813_Oman_14CH4_paper_figs.html --lua-filter /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmarkdown/lua/pagebreak.lua --lua-filter /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmarkdown/lua/latex-div.lua --embed-resources --standalone --variable bs3=TRUE --section-divs --table-of-contents --toc-depth 3 --variable toc_float=1 --variable toc_selectors=h1,h2,h3 --variable toc_collapsed=1 --variable toc_smooth_scroll=1 --variable toc_print=1 --template /Library/Frameworks/R.framework/Versions/4.4-x86_64/Resources/library/rmarkdown/rmd/h/default.html --no-highlight --variable highlightjs=1 --number-sections --variable theme=bootstrap --css stylesheet.css --mathjax --variable &#39;mathjax-url=https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML&#39; --include-in-header /var/folders/pw/9fk_chms0jl85nfldy5rgfyc0000gn/T//RtmpIrTgDM/rmarkdown-str70e06c864cff.html --variable code_folding=show --variable code_menu=1 
-
-Output created: docs/rmarkdown/200813_Oman_14CH4_paper_figs.html</code></pre>
-<h1>
-200814_Oman_well_logs_14C_carbonate.Rmd (NC)
-</h1>
-<pre><code>source file has not changed, docs file will not be re-generated (delete file in docs folder to force re-generation)</code></pre>
+Quitting from lines 166-169 [check-vals-20-25m] (200814_Oman_well_logs_14C_carbonate.Rmd)
+                                                                                                                                               
+Execution halted</code></pre>
 <h1>
 OM19_16S_processing.Rmd (NC)
 </h1>
@@ -1863,13 +1867,13 @@ generated.</code></pre>
 <pre class="r"><code>summary %&gt;% knitr::kable()</code></pre>
 <table>
 <colgroup>
-<col width="4%" />
-<col width="16%" />
-<col width="22%" />
-<col width="13%" />
-<col width="22%" />
+<col width="3%" />
+<col width="15%" />
+<col width="21%" />
+<col width="12%" />
+<col width="21%" />
 <col width="9%" />
-<col width="4%" />
+<col width="9%" />
 <col width="3%" />
 <col width="3%" />
 </colgroup>
@@ -1928,19 +1932,19 @@ generated.</code></pre>
 <td align="left">docs/rmarkdown/200813_Oman_14CH4_paper_figs.html</td>
 <td align="left">2024-07-27 22:56:09 EDT</td>
 <td align="left">NA</td>
-<td align="left">TRUE</td>
-<td align="left">TRUE</td>
+<td align="left">FALSE</td>
+<td align="left">NA</td>
 </tr>
 <tr class="odd">
 <td align="left">RMarkdown</td>
 <td align="left">200814_Oman_well_logs_14C_carbonate.Rmd</td>
 <td align="left">docs/rmarkdown/200814_Oman_well_logs_14C_carbonate.Rmd</td>
-<td align="left">91648418f1c9012a7133862f7355d4cb</td>
+<td align="left">efecdb470f4213829344a2674b07e39b</td>
 <td align="left">docs/rmarkdown/200814_Oman_well_logs_14C_carbonate.html</td>
 <td align="left">2020-09-18 11:26:25 MDT</td>
-<td align="left">NA</td>
+<td align="left">2024-07-28 00:11:39 EDT</td>
+<td align="left">TRUE</td>
 <td align="left">FALSE</td>
-<td align="left">NA</td>
 </tr>
 <tr class="even">
 <td align="left">RMarkdown</td>

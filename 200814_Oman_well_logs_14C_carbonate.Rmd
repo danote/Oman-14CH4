@@ -163,9 +163,9 @@ NSHQ14_profile %>% select(Eh_mV) %>% summary()
 ```
 Checking values around 20 m and 25 m
 ```{r check-vals-20-25m}
-NSHQ14_profile %>% filter(depth_sampled_mbgl > 19.99 & depth_sampled_mbgl < 20.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_mS_cm)
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 19.99 & depth_sampled_mbgl < 20.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_uS_per_cm)
 
-NSHQ14_profile %>% filter(depth_sampled_mbgl > 24.99 & depth_sampled_mbgl < 25.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_mS_cm)
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 24.99 & depth_sampled_mbgl < 25.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_uS_per_cm)
 ```
 
 
