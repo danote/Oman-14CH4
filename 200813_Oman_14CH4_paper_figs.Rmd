@@ -19,14 +19,25 @@ editor_options:
 ## Load code libraries
 ```{r setup, message=FALSE, warning=FALSE}
 # load libraries
+
+# install if needed
+# install.packages("tidyverse")
 library(tidyverse) # dplyr, tidyr, ggplot
+# install.packages("readxl")
 library(readxl) # reading excel files
+# install.packages("knitr")
 library(knitr) # generating reports
+# install.packages("scales")
 library(scales) # making log scales with exponents
+# install.packages("ggrepel")
 library(ggrepel) # algorithm to avoid overlapping labels
+# install.packages("cowplot")
 library(cowplot) # extracting legends from plots
+# install.packages("lemon")
 library(lemon) # repeat axis lines for paneled figures in ggplot
+# install.packages("ggpmisc")
 library(ggpmisc) # adding linear regression equations to ggplot
+# install.packages("latex2exp")
 library(latex2exp) # plot labels with latex
 
 # global knitting options for automatic saving of all plots as .png and .pdf
@@ -170,8 +181,8 @@ MWL_plot <- data_water_isotopes %>% ggplot() +
   scale_color_manual(values = cbPalette_MWL, name = "year sampled", guide = guide_legend(order = 2)) +
   
   # axis styling
-  scale_x_continuous(limits = c(-5, 1), name = latex2exp::TeX("$\\delta^{18}O\\, /\\, \\[\U2030  \\, VSMOW \\]$")) +
-  scale_y_continuous(limits = c(-25, 10), name = latex2exp::TeX("$\\delta D\\, /\\, \\[\U2030  \\, VSMOW \\]$")) +
+  scale_x_continuous(limits = c(-5, 1), name = latex2exp::TeX("$\\delta^{18}O\\, /\\, \\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(limits = c(-25, 10), name = latex2exp::TeX("$\\delta D\\, /\\, \\[$‰$  \\, VSMOW \\]$")) +
   
   # design
   theme_classic(base_size = 12)
@@ -179,7 +190,6 @@ MWL_plot <- data_water_isotopes %>% ggplot() +
 # print plot
 MWL_plot 
 ```
-
 # Summary of $\delta^{13}\text{C}_{\text{CH}_4}$, $\delta\text{D}_{\text{CH}_4}$ and $c_{\Sigma{\text{CO}_2}}$ data
 
 ```{r summ-CD}
@@ -470,8 +480,8 @@ CD_plot <-
     ), alpha = 1) +
 
   # axis styling
-  scale_y_continuous(name = latex2exp::TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$"), limits = c(-450, 0), expand = c(0,0)) +
-  scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VPDB \\]$"), limits = c(-90, 15), expand = c(0,0)) +
+  scale_y_continuous(name = latex2exp::TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$"), limits = c(-450, 0), expand = c(0,0)) +
+  scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$"), limits = c(-90, 15), expand = c(0,0)) +
   
   # symbol styling
   scale_fill_manual(values = fill_5_wells_named, name="water type", guide = guide_legend(order = 2)) +
@@ -897,8 +907,8 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
   mutate(
     tex_params = as_factor(parameter)%>% 
       fct_recode(
-        "$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VPDB \\]$" = "CH4_d13C_permil_VPDB",
-                "$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
+        "$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$" = "CH4_d13C_permil_VPDB",
+                "$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
   )) %>% 
   # make shorter note for NSHQ14
   mutate(notes_short = if_else(notes == "no purge (NP)", "NP", NA_character_))
@@ -1057,7 +1067,7 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_Fm, y = CH4_d13C_permil_VPDB))+
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
   geom_point()+
   scale_x_continuous(limits = c(0,1), expand = c(0,0), name = TeX("CH$_4$ fraction modern")) +
-  scale_y_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VPDB \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$")) +
   theme_classic() +
   theme(
     plot.margin = margin(r = 12)
@@ -1091,7 +1101,7 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_Fm, y = CH4_dD_permil_VSMOW))+
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
   geom_point()+
   scale_x_continuous(limits = c(0,1), expand = c(0,0), name = TeX("CH$_4$ fraction modern")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic() +
   theme(
     plot.margin = margin(r = 12)
@@ -1121,8 +1131,8 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_per
   geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
   geom_point()+
-  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic() +
   theme(
     plot.margin = margin(r = 12)
@@ -1168,8 +1178,8 @@ data_CD_gathered_NSHQ14 %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_perm
   geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE) +
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"))) +
   geom_point()+
-  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[\U2030  \\, VSMOW \\]$")) +
+  scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic()
 ```
 
@@ -1214,7 +1224,7 @@ data_C1_C2_C3_NSHQ14_2017_thru_2019_14C %>% ggplot(aes(x = CH4_Fm_UCIAMS, y = C1
 
 # Rate comparisons
 Methane concentration in 2017 in $\mu\text{mol}\,\text{L}^{-1}$
-```{r}
+```{r conc-CH4-NSHQ14-2017}
 conc_CH4_NSHQ14_2017_umol_per_L <- data %>% filter(sampling_site == "NSHQ14") %>%
   filter(year_sampled == 2017) %>%
   filter(depth_fluid_intake_mbct == 85) %>%
@@ -1224,7 +1234,7 @@ conc_CH4_NSHQ14_2017_umol_per_L
 ```
 
 Methane fraction modern in 2017
-```{r}
+```{r F14C-CH4-NSHQ14-2017}
 Fm_CH4_NSHQ14_2017 <- data %>% filter(sampling_site == "NSHQ14") %>%
   filter(year_sampled == 2017) %>%
   filter(depth_fluid_intake_mbct == 85) %>%
@@ -1234,7 +1244,7 @@ Fm_CH4_NSHQ14_2017
 ```
 
 Concentration of modern methane in 2017
-```{r}
+```{r conc-modern-CH4-NSHQ14-2017}
 conc_modern_CH4_NSHQ14_2017_umol_per_L <- conc_CH4_NSHQ14_2017_umol_per_L * Fm_CH4_NSHQ14_2017
 
 conc_modern_CH4_NSHQ14_2017_umol_per_L
@@ -1242,7 +1252,7 @@ conc_modern_CH4_NSHQ14_2017_umol_per_L
 
 Rate comparison with Fones et al. 2019 "Physiological adaptations to serpentinization in the Samail Ophiolite, Oman" ISME J
 Calculate minimum time to form modern methane by microbial methanogenesis, in years
-```{r}
+```{r methanogenesis-rates-Fones}
 NSHQ14_2017_max_methanogenesis_rate_pmol_per_mL_per_day <- 18 # Fones et al. 2019
 
 NSHQ14_2017_max_methanogenesis_rate_pmol_per_L_per_day <- NSHQ14_2017_max_methanogenesis_rate_pmol_per_mL_per_day * 1000
@@ -1255,11 +1265,7 @@ NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_year
 ```
 
 
-```{r}
-# min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day <- conc_modern_CH4_NSHQ14_2017_umol_per_L / NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_day
-
-# min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_day / 365
-
+```{r min-methanogenesis-time}
 min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- conc_modern_CH4_NSHQ14_2017_umol_per_L / NSHQ14_2017_max_methanogenesis_rate_umol_per_L_per_year
 
 min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
