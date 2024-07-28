@@ -126,8 +126,7 @@ formula <- Ag_AgCl_E_T$E_Ag_AgCl_KCl_sat_mV ~ Ag_AgCl_E_T$T_C
 plot_redox_offset_T <- Ag_AgCl_E_T %>% ggplot(aes(x = T_C, y = E_Ag_AgCl_KCl_sat_mV))+
   geom_point()+
   geom_smooth(method="lm")+
-  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
-               formula = formula, parse = TRUE, rr.digits = 2, label.x = .2, label.y = .9)+
+    stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")), formula = y ~ x, parse = TRUE, rr.digits = 2, label.x = .2, label.y = .9)+
   theme_bw(base_size = 12)+
   theme(
     panel.grid = element_blank())
@@ -479,7 +478,7 @@ NSHQ14_BA3A_profiles_and_isotopes_longer <- NSHQ14_BA3A_profiles_and_isotopes_lo
         "Eh / $\\lbrack$mV$\\rbrack$" = "Eh_mV",
         "$\\overset{Conductivity}{/\\,$\\lbrack$mS$\\cdot$cm^{-1}$\\rbrack$}$" = "cond_mS_cm",
         "$\\overset{Veins\\,with}{carbonate,\\,BA3A}$" = "vein_type_carbonate",
-        "$\\overset{Carbonate}{\\delta^{13}C\\,/\\,$\\lbrack$‰\\,VPDB\\rbrack}$" = "carbonate_d13C_VPDB_permil",
+        "$\\overset{Carbonate}{\\delta^{13}C\\,/\\,\\lbrack$‰$\\,VPDB\\rbrack}$" = "carbonate_d13C_VPDB_permil",
         "$\\overset{Carbonate}{fraction\\,modern}$" = "Fm"
   )
   )
@@ -614,7 +613,7 @@ plot_T_NSHQ14 <- NSHQ14_profile %>% ggplot( mapping = aes(
   geom_point() +
     geom_smooth(method="lm", color = "blue") +
   stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
-               formula = NSHQ14_profile$T_C ~ NSHQ14_profile$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
   scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
     scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
   theme_bw()+
@@ -634,7 +633,7 @@ plot_T_NSHQ14_below_100m <- NSHQ14_profile_below_100m %>% ggplot( mapping = aes(
   geom_point() +
     geom_smooth(method="lm", color = "blue") +
   stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
-               formula = NSHQ14_profile_below_100m$T_C ~ NSHQ14_profile_below_100m$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
   scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
     scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
     theme_bw()+
@@ -663,7 +662,7 @@ plot_T_BA3A <- BA3A_profile %>% ggplot( mapping = aes(
   geom_point() +
     geom_smooth(method="lm", color = "blue") +
   stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
-               formula = BA3A_profile$T_C ~ BA3A_profile$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
   scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
     scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
   theme_bw()+
@@ -683,7 +682,7 @@ plot_T_BA3A_below_100m <- BA3A_profile_below_100m %>% ggplot( mapping = aes(
   geom_point() +
     geom_smooth(method="lm", color = "blue") +
   stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
-               formula = BA3A_profile_below_100m$T_C ~ BA3A_profile_below_100m$depth_sampled_mbgl, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
   scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
     scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
     theme_bw()+
