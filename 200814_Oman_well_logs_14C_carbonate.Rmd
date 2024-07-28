@@ -1,6 +1,6 @@
 ---
-title: "Oman methane isotope plotting"
-subtitle: "Source file: 200813_Oman_14CH4_paper_figs.Rmd"
+title: "NSHQ14 well logs from 2018"
+subtitle: "Source file: 200814_Oman_well_logs_14C_carbonate.Rmd"
 author: "Daniel Nothaft"
 date: "`r format(Sys.Date(), '%d %b %Y')`"
 output:
