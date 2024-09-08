@@ -1270,3 +1270,12 @@ min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year <- conc_modern_CH
 
 min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
 ```
+
+
+# Sulfate and hydrogen comparisons
+
+```{r}
+data %>% filter(!is.na(CH4_Fm_UCIAMS)) %>% select(
+sampling_site, year_sampled, month_sampled, day_sampled, depth_fluid_intake_mbct, CH4_Fm_UCIAMS, Sulfate_uM, Sulfate_was_measured, H2_uM, H2_was_measured, H2_LQ_uM)
+```
+
