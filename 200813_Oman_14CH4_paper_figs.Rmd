@@ -79,6 +79,12 @@ data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_det
 data_literature
 ```
 
+Load in Henry's constants from Sander, 2015
+```{r load-henrys}
+# read Henry's constants from literature
+Henrys <- read_csv("data_raw/Henrys_constants_Sander.csv")
+```
+
 ## Set plotting aesthetics
 
 ```{r set-plot-aesthetics}
@@ -1277,5 +1283,10 @@ min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
 ```{r}
 data %>% filter(!is.na(CH4_Fm_UCIAMS)) %>% select(
 sampling_site, year_sampled, month_sampled, day_sampled, depth_fluid_intake_mbct, CH4_Fm_UCIAMS, Sulfate_uM, Sulfate_was_measured, H2_uM, H2_was_measured, H2_LQ_uM)
+```
+
+# Henrys constant calculations
+```{r}
+
 ```
 
