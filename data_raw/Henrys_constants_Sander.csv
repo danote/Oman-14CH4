@@ -1,4 +1,4 @@
-﻿compound,Hcp_ mol_m-3_Pa-1,dlnHcp_d_T-1_-1
+﻿compound,Hcp_mol_per_m3_Pa_25C,dlnHcp_over_d_inv_T
 methane,0.000014,1900
 ethane,0.000019,2400
 propane,0.000015,2700

@@ -1287,6 +1287,37 @@ sampling_site, year_sampled, month_sampled, day_sampled, depth_fluid_intake_mbct
 
 # Henrys constant calculations
 ```{r}
+R_m3_Pa_per_K_mol <- 8.31446261815324 # Gas constant
 
+# Calculate Henry's constants at 22 ˚C and 37 ˚C
+Henrys <- Henrys %>% mutate(Hcp_mol_per_m3_Pa_22C = Hcp_mol_per_m3_Pa_25C * exp(dlnHcp_over_d_inv_T * (1/(22+273.15) - 1/(25+273.15))))
+
+Henrys <- Henrys %>% mutate(Hcp_mol_per_m3_Pa_37C = Hcp_mol_per_m3_Pa_25C * exp(dlnHcp_over_d_inv_T * (1/(37+273.15) - 1/(25+273.15))))
+
+# Calculate Henry's constants at 22 ˚C and 37 ˚C
+
+Henrys <- Henrys %>% mutate(Hcc_22C = Hcp_mol_per_m3_Pa_22C * R_m3_Pa_per_K_mol * (22+273.15))
+
+Henrys <- Henrys %>% mutate(Hcc_37C = Hcp_mol_per_m3_Pa_37C * R_m3_Pa_per_K_mol * (37+273.15))
+
+# Calculate % difference at 37 ˚C vs 22 ˚C
+Henrys <- Henrys %>% mutate(Hcp_perc_diff_37C_22C = (Hcp_mol_per_m3_Pa_37C - Hcp_mol_per_m3_Pa_22C) / Hcp_mol_per_m3_Pa_22C * 100)
+
+Henrys <- Henrys %>% mutate(Hcc_perc_diff_37C_22C = (Hcc_37C - Hcc_22C) / Hcc_22C * 100)
+
+Henrys
+```
+
+Get relevant gas data
+```{r}
+data_14CH4_2019_gas_concs <- data %>% filter(year_sampled == 2019) %>% filter(sampling_site == "NSHQ14" | sampling_site == "WAB71") %>% select(sampling_site, notes, CH4_uM, CH4_LQ_uM, C2H6_uM, C2H6_LQ_uM, C3H8_uM, C3H8_LQ_uM, i_C4H10_uM, i_C4H10_LQ_uM, n_C4H10_uM, n_C4H10_LQ_uM, i_C5H12_uM, i_C5H12_LQ_uM, C6H14_uM, C6H12_LQ_uM)
+
+data_14CH4_2019_gas_concs
+```
+calculate equilibrium gas phase concentration
+```{r}
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs %>% mutate(CH4_uM = CH4_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric)
+
+data_14CH4_2019_gas_concs_gas_phase
 ```
 
