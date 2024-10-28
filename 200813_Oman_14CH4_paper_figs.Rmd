@@ -1310,14 +1310,39 @@ Henrys
 
 Get relevant gas data
 ```{r}
-data_14CH4_2019_gas_concs <- data %>% filter(year_sampled == 2019) %>% filter(sampling_site == "NSHQ14" | sampling_site == "WAB71") %>% select(sampling_site, notes, CH4_uM, CH4_LQ_uM, C2H6_uM, C2H6_LQ_uM, C3H8_uM, C3H8_LQ_uM, i_C4H10_uM, i_C4H10_LQ_uM, n_C4H10_uM, n_C4H10_LQ_uM, i_C5H12_uM, i_C5H12_LQ_uM, C6H14_uM, C6H12_LQ_uM)
+data_14CH4_2019_gas_concs <- data %>% filter(year_sampled == 2019) %>% filter(sampling_site == "NSHQ14" | sampling_site == "WAB71") %>% select(sampling_site, notes, CH4_uM, CH4_LQ_uM, C2H6_uM, C2H6_LQ_uM, C3H8_uM, C3H8_LQ_uM, i_C4H10_uM, i_C4H10_LQ_uM, n_C4H10_uM, n_C4H10_LQ_uM, i_C5H12_uM, i_C5H12_LQ_uM, n_C5H12_uM, n_C5H12_LQ_uM, C6H14_uM, C6H12_LQ_uM)
 
 data_14CH4_2019_gas_concs
 ```
 calculate equilibrium gas phase concentration
 ```{r}
-data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs %>% mutate(CH4_uM = CH4_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric)
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs %>%
+  mutate(CH4_uM = CH4_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric(),
+          CH4_LQ_uM = CH4_LQ_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric(),
+          C2H6_uM = C2H6_uM / Henrys %>% filter(compound == "ethane") %>% select(Hcc_22C) %>% as.numeric(),
+          C2H6_LQ_uM = C2H6_LQ_uM / Henrys %>% filter(compound == "ethane") %>% select(Hcc_22C) %>% as.numeric(),
+          C3H8_uM = C3H8_uM / Henrys %>% filter(compound == "propane") %>% select(Hcc_22C) %>% as.numeric(),
+          C3H8_LQ_uM = C3H8_LQ_uM / Henrys %>% filter(compound == "propane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C4H10_uM = i_C4H10_uM / Henrys %>% filter(compound == "iso-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C4H10_LQ_uM = i_C4H10_LQ_uM / Henrys %>% filter(compound == "iso-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C4H10_uM = n_C4H10_uM / Henrys %>% filter(compound == "n-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C4H10_LQ_uM = n_C4H10_LQ_uM / Henrys %>% filter(compound == "n-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C5H12_uM = i_C5H12_uM / Henrys %>% filter(compound == "iso-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C5H12_LQ_uM = i_C5H12_LQ_uM / Henrys %>% filter(compound == "iso-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C5H12_uM = n_C5H12_uM / Henrys %>% filter(compound == "n-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C5H12_LQ_uM = n_C5H12_LQ_uM / Henrys %>% filter(compound == "n-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          C6H14_uM = C6H14_uM / Henrys %>% filter(compound == "hexane") %>% select(Hcc_22C) %>% as.numeric(),
+          C6H12_LQ_uM = C6H12_LQ_uM / Henrys %>% filter(compound == "hexane") %>% select(Hcc_22C) %>% as.numeric()
+                                                                              )
 
 data_14CH4_2019_gas_concs_gas_phase
+```
+
+```{r}
+# calculate C1/(C2+C3)
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs_gas_phase %>% mutate(C1_over_C2_plus_C3 = CH4_uM / (C2H6_uM + if_else(!is.na(C3H8_uM), C3H8_uM, 0)))
+
+data_14CH4_2019_gas_concs_gas_phase %>% select(sampling_site, C1_over_C2_plus_C3, notes)
+
 ```
 
