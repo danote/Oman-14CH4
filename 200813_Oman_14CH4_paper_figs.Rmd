@@ -1346,3 +1346,51 @@ data_14CH4_2019_gas_concs_gas_phase %>% select(sampling_site, C1_over_C2_plus_C3
 
 ```
 
+```{r}
+# calculate C1/(C moles in total C1-C6)
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs_gas_phase %>% mutate(mol_C_in_C1_over_mol_C_C1_thru_C6 = CH4_uM / (CH4_uM + if_else(is.na(C2H6_uM) == FALSE, C2H6_uM, 0) * 2 + if_else(is.na(C3H8_uM) == FALSE, C3H8_uM, 0) * 3 + if_else(is.na(i_C4H10_uM) == FALSE, i_C4H10_uM, 0) * 4 + if_else(is.na(n_C4H10_uM) == FALSE, n_C4H10_uM, 0) * 4 + if_else(is.na(i_C5H12_uM) == FALSE, i_C4H10_uM, 0) * 5 + if_else(is.na(n_C5H12_uM) == FALSE, n_C5H12_uM, 0) * 5 + if_else(is.na(C6H14_uM) == FALSE, C6H14_uM, 0) * 6))
+
+data_14CH4_2019_gas_concs_gas_phase %>% select(sampling_site, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C = 0 and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 1 assuming gas concentrations ratios from samples in prior chunk
+
+```{r}
+F14C_NMHC_hypo <- 1 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+F14C_CH4_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_CH4 <- data_14CH4_2019_gas_concs_gas_phase %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_hypo + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_CH4 %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C = 1 and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 0 assuming gas concentrations ratios from samples in prior chunk
+
+```{r}
+F14C_NMHC_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+F14C_CH4_hypo <- 1 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC <- data_14CH4_2019_gas_concs_gas_phase %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_hypo + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C of measured value of NSHQ14 2019 prepared at Isotech and measured at NOSAMS and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 0 assuming gas concentrations ratios from samples in prior chunk
+```{r}
+F14C_NMHC_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+(F14C_CH4_hypo <- data %>% filter(sampling_site == "NSHQ14" & year_sampled == 2019 & is.na(notes) == T) %>% select(CH4_Fm_NOSAMS) %>% as.character() %>% as.numeric()) # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC_measured_NSHQ14_f14C_CH4 <- data_14CH4_2019_gas_concs_gas_phase %>% filter(sampling_site == "NSHQ14" & is.na(notes) == T) %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_hypo + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC_measured_NSHQ14_f14C_CH4 %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+```
+
+F$^{14}$C of total hydrocarbon gases in NSHQ14 in 2019 measured at UC-Irvine and prepared at CU-Boulder
+
+```{r}
+data %>% filter(sampling_site == "NSHQ14" & year_sampled == 2019 & is.na(notes) == T) %>% select(CH4_Fm_UCIAMS) %>% as.character() %>% as.numeric()
+```
