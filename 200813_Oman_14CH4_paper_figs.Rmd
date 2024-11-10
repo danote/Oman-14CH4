@@ -1408,3 +1408,8 @@ F$^{14}$C of total hydrocarbon gases in NSHQ14 in 2019 measured at UC-Irvine and
 F14C_CH4_diff_measured_hypo / F14C_CH4_diff_NOSAMS_UCI * 100
 ```
 
+Calculate relative difference (%) of the UCI and NOSAMS samples
+```{r}
+(F14C_CH4_measured_NOSAMS - F14C_CH4_measured_UCI) / mean(F14C_CH4_measured_NOSAMS, F14C_CH4_measured_UCI) * 100
+```
+
