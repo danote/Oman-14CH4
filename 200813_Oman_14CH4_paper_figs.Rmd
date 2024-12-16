@@ -79,6 +79,12 @@ data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_det
 data_literature
 ```
 
+Load in Henry's constants from Sander, 2015
+```{r load-henrys}
+# read Henry's constants from literature
+Henrys <- read_csv("data_raw/Henrys_constants_Sander.csv")
+```
+
 ## Set plotting aesthetics
 
 ```{r set-plot-aesthetics}
@@ -1277,5 +1283,133 @@ min_time_to_form_modern_CH4_by_methanogenesis_NSHQ14_2017_year
 ```{r}
 data %>% filter(!is.na(CH4_Fm_UCIAMS)) %>% select(
 sampling_site, year_sampled, month_sampled, day_sampled, depth_fluid_intake_mbct, CH4_Fm_UCIAMS, Sulfate_uM, Sulfate_was_measured, H2_uM, H2_was_measured, H2_LQ_uM)
+```
+
+# Henrys constant calculations
+```{r}
+R_m3_Pa_per_K_mol <- 8.31446261815324 # Gas constant
+
+# Calculate Henry's constants at 22 ˚C and 37 ˚C
+Henrys <- Henrys %>% mutate(Hcp_mol_per_m3_Pa_22C = Hcp_mol_per_m3_Pa_25C * exp(dlnHcp_over_d_inv_T * (1/(22+273.15) - 1/(25+273.15))))
+
+Henrys <- Henrys %>% mutate(Hcp_mol_per_m3_Pa_37C = Hcp_mol_per_m3_Pa_25C * exp(dlnHcp_over_d_inv_T * (1/(37+273.15) - 1/(25+273.15))))
+
+# Calculate Henry's constants at 22 ˚C and 37 ˚C
+
+Henrys <- Henrys %>% mutate(Hcc_22C = Hcp_mol_per_m3_Pa_22C * R_m3_Pa_per_K_mol * (22+273.15))
+
+Henrys <- Henrys %>% mutate(Hcc_37C = Hcp_mol_per_m3_Pa_37C * R_m3_Pa_per_K_mol * (37+273.15))
+
+# Calculate % difference at 37 ˚C vs 22 ˚C
+Henrys <- Henrys %>% mutate(Hcp_perc_diff_37C_22C = (Hcp_mol_per_m3_Pa_37C - Hcp_mol_per_m3_Pa_22C) / Hcp_mol_per_m3_Pa_22C * 100)
+
+Henrys <- Henrys %>% mutate(Hcc_perc_diff_37C_22C = (Hcc_37C - Hcc_22C) / Hcc_22C * 100)
+
+Henrys
+```
+
+Get relevant gas data
+```{r}
+data_14CH4_2019_gas_concs <- data %>% filter(year_sampled == 2019) %>% filter(sampling_site == "NSHQ14" | sampling_site == "WAB71") %>% select(sampling_site, notes, CH4_uM, CH4_LQ_uM, C2H6_uM, C2H6_LQ_uM, C3H8_uM, C3H8_LQ_uM, i_C4H10_uM, i_C4H10_LQ_uM, n_C4H10_uM, n_C4H10_LQ_uM, i_C5H12_uM, i_C5H12_LQ_uM, n_C5H12_uM, n_C5H12_LQ_uM, C6H14_uM, C6H12_LQ_uM)
+
+data_14CH4_2019_gas_concs
+```
+calculate equilibrium gas phase concentration
+```{r}
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs %>%
+  mutate(CH4_uM = CH4_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric(),
+          CH4_LQ_uM = CH4_LQ_uM / Henrys %>% filter(compound == "methane") %>% select(Hcc_22C) %>% as.numeric(),
+          C2H6_uM = C2H6_uM / Henrys %>% filter(compound == "ethane") %>% select(Hcc_22C) %>% as.numeric(),
+          C2H6_LQ_uM = C2H6_LQ_uM / Henrys %>% filter(compound == "ethane") %>% select(Hcc_22C) %>% as.numeric(),
+          C3H8_uM = C3H8_uM / Henrys %>% filter(compound == "propane") %>% select(Hcc_22C) %>% as.numeric(),
+          C3H8_LQ_uM = C3H8_LQ_uM / Henrys %>% filter(compound == "propane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C4H10_uM = i_C4H10_uM / Henrys %>% filter(compound == "iso-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C4H10_LQ_uM = i_C4H10_LQ_uM / Henrys %>% filter(compound == "iso-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C4H10_uM = n_C4H10_uM / Henrys %>% filter(compound == "n-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C4H10_LQ_uM = n_C4H10_LQ_uM / Henrys %>% filter(compound == "n-butane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C5H12_uM = i_C5H12_uM / Henrys %>% filter(compound == "iso-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          i_C5H12_LQ_uM = i_C5H12_LQ_uM / Henrys %>% filter(compound == "iso-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C5H12_uM = n_C5H12_uM / Henrys %>% filter(compound == "n-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          n_C5H12_LQ_uM = n_C5H12_LQ_uM / Henrys %>% filter(compound == "n-pentane") %>% select(Hcc_22C) %>% as.numeric(),
+          C6H14_uM = C6H14_uM / Henrys %>% filter(compound == "hexane") %>% select(Hcc_22C) %>% as.numeric(),
+          C6H12_LQ_uM = C6H12_LQ_uM / Henrys %>% filter(compound == "hexane") %>% select(Hcc_22C) %>% as.numeric()
+                                                                              )
+
+data_14CH4_2019_gas_concs_gas_phase
+```
+
+```{r}
+# calculate C1/(C2+C3)
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs_gas_phase %>% mutate(C1_over_C2_plus_C3 = CH4_uM / (C2H6_uM + if_else(!is.na(C3H8_uM), C3H8_uM, 0)))
+
+data_14CH4_2019_gas_concs_gas_phase %>% select(sampling_site, C1_over_C2_plus_C3, notes)
+
+```
+
+```{r}
+# calculate C1/(C moles in total C1-C6)
+data_14CH4_2019_gas_concs_gas_phase <- data_14CH4_2019_gas_concs_gas_phase %>% mutate(mol_C_in_C1_over_mol_C_C1_thru_C6 = CH4_uM / (CH4_uM + if_else(is.na(C2H6_uM) == FALSE, C2H6_uM, 0) * 2 + if_else(is.na(C3H8_uM) == FALSE, C3H8_uM, 0) * 3 + if_else(is.na(i_C4H10_uM) == FALSE, i_C4H10_uM, 0) * 4 + if_else(is.na(n_C4H10_uM) == FALSE, n_C4H10_uM, 0) * 4 + if_else(is.na(i_C5H12_uM) == FALSE, i_C4H10_uM, 0) * 5 + if_else(is.na(n_C5H12_uM) == FALSE, n_C5H12_uM, 0) * 5 + if_else(is.na(C6H14_uM) == FALSE, C6H14_uM, 0) * 6))
+
+data_14CH4_2019_gas_concs_gas_phase %>% select(sampling_site, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C = 0 and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 1 assuming gas concentrations ratios from samples in prior chunk
+
+```{r}
+F14C_NMHC_hypo <- 1 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+F14C_CH4_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_CH4 <- data_14CH4_2019_gas_concs_gas_phase %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_hypo + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_CH4 %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C = 1 and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 0 assuming gas concentrations ratios from samples in prior chunk
+
+```{r}
+F14C_NMHC_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+F14C_CH4_hypo <- 1 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC <- data_14CH4_2019_gas_concs_gas_phase %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_hypo + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+```
+
+Calculate what the F$^{14}$C of the total gaseous hydrocarbon pool would be if CH$_4$ had F$^{14}$C of measured value of NSHQ14 2019 prepared at Isotech and measured at NOSAMS and non-methane hydrocarbon gases (NMHC) had F$^{14}$C = 0 assuming gas concentrations ratios from samples in prior chunk
+```{r}
+F14C_NMHC_hypo <- 0 # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+(F14C_CH4_measured_NOSAMS <- data %>% filter(sampling_site == "NSHQ14" & year_sampled == 2019 & is.na(notes) == T) %>% select(CH4_Fm_NOSAMS) %>% as.character() %>% as.numeric()) # hypothetical assumption of fraction modern of total non-methane hydrocarbon pool
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC_measured_NSHQ14_f14C_CH4 <- data_14CH4_2019_gas_concs_gas_phase %>% filter(sampling_site == "NSHQ14" & is.na(notes) == T) %>%
+  mutate(F14C_tot_HC_hypo = mol_C_in_C1_over_mol_C_C1_thru_C6 * F14C_CH4_measured_NOSAMS + (1 - mol_C_in_C1_over_mol_C_C1_thru_C6) * F14C_NMHC_hypo)
+
+data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC_measured_NSHQ14_f14C_CH4 %>% select(sampling_site, F14C_tot_HC_hypo, mol_C_in_C1_over_mol_C_C1_thru_C6, notes)
+
+F14C_CH4_hypo <- data_14CH4_2019_gas_concs_gas_phase_hypo_dead_NMHC_measured_NSHQ14_f14C_CH4 %>% select(F14C_tot_HC_hypo) %>% as.character %>% as.numeric()
+
+# calculate difference between measured and hypothetical F14C CH4 at NSHQ14 in 2019
+(F14C_CH4_diff_measured_hypo <- F14C_CH4_measured_NOSAMS - F14C_CH4_hypo)
+```
+
+F$^{14}$C of total hydrocarbon gases in NSHQ14 in 2019 measured at UC-Irvine and prepared at CU-Boulder
+
+```{r}
+(F14C_CH4_measured_UCI <- data %>% filter(sampling_site == "NSHQ14" & year_sampled == 2019 & is.na(notes) == T) %>% select(CH4_Fm_UCIAMS) %>% as.character() %>% as.numeric())
+
+# calculate difference between measured F14C CH4 at NSHQ14 in 2019 at NOSAMS and UCI
+(F14C_CH4_diff_NOSAMS_UCI <- F14C_CH4_measured_NOSAMS - F14C_CH4_measured_UCI)
+```
+
+% of difference between NOSAMS and UCI F$^{14}$C attributable to dilution of NMHCs
+```{r}
+F14C_CH4_diff_measured_hypo / F14C_CH4_diff_NOSAMS_UCI * 100
+```
+
+Calculate relative difference (%) of the UCI and NOSAMS samples
+```{r}
+(F14C_CH4_measured_NOSAMS - F14C_CH4_measured_UCI) / mean(F14C_CH4_measured_NOSAMS, F14C_CH4_measured_UCI) * 100
 ```
 
