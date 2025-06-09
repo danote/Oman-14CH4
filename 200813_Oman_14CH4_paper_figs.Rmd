@@ -1006,8 +1006,9 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
 CH4_F14C_d13C_dD_plot <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
-  xmin = CH4_Fm - CH4_Fm_unc,
-  xmax = CH4_Fm + CH4_Fm_unc,
+  # x error bars are smaller than data points
+  # xmin = CH4_Fm - CH4_Fm_unc,
+  # xmax = CH4_Fm + CH4_Fm_unc,
   ymin = value - uncertainty_permil,
   ymax = value + uncertainty_permil,
   shape = as.character(year_sampled),
@@ -1017,7 +1018,7 @@ CH4_F14C_d13C_dD_plot <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
 
   # error bars
   geom_linerange(orientation = "x") +
-  geom_linerange(orientation = "y") +
+  # geom_linerange(orientation = "y") +
   
   # points
   geom_point() +
@@ -1055,8 +1056,8 @@ CH4_F14C_d13C_dD_plot
 CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
-  xmin = CH4_Fm - CH4_Fm_unc,
-  xmax = CH4_Fm + CH4_Fm_unc,
+  # xmin = CH4_Fm - CH4_Fm_unc,
+  # xmax = CH4_Fm + CH4_Fm_unc,
   ymin = value - uncertainty_permil,
   ymax = value + uncertainty_permil,
   shape = as.character(year_sampled),
@@ -1066,7 +1067,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% gg
 
   # error bars
   geom_linerange(orientation = "x") +
-  geom_linerange(orientation = "y") +
+  # geom_linerange(orientation = "y") +
   
   # points
   geom_point() +
@@ -1107,7 +1108,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean <- CH4_F14C_d13C_dD_plot_year_color
   strip.background = element_blank(),
   strip.text = element_text(size = 11, vjust = 0),
     legend.position = "bottom",
-    legend.box.margin = margin(r=2),
+    legend.box.margin = margin(r=14),
     plot.margin = margin(l=0, t=0, b=1, r=0),
     legend.box.spacing = unit(0.1, "cm"),
     legend.text = element_text(size = 8.2),
