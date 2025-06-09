@@ -126,453 +126,7 @@ shapes_all_sites_named <- c("Oman/UAE" = 21, "Philippines" = 0, "Mid-Cayman Rise
 shapes_fills <- c(22, 23, 24, 21)
 ```
 
-# Water stable isotopes plot
-## Get and summarize water stable isotope data
-```{r get-water-isotopes}
-# select water isotope data from full dataset
-data_water_isotopes <- data %>% filter(!is.na(H2O_dD_permil_VSMOW)) %>% select(sampling_site, year_sampled, H2O_dD_permil_VSMOW, H2O_d18O_permil_VSMOW)
 
-# print
-data_water_isotopes
-```
-
-Summarize water stable isotope data by well and year
-```{r summ-water-isotopes-well-year}
-# group water isotope data by well and sample year and compute summary data
-data_water_isotopes_summ_well_year <- data_water_isotopes %>% group_by(sampling_site, year_sampled) %>% summarize(n = n(), H2O_dD_permil_VSMOW_mean_well_year = mean(H2O_dD_permil_VSMOW), H2O_dD_permil_VSMOW_sd = sd(H2O_dD_permil_VSMOW), H2O_d18O_permil_VSMOW_mean_well_year = mean(H2O_d18O_permil_VSMOW), H2O_d18O_permil_VSMOW_sd = sd(H2O_d18O_permil_VSMOW))
-
-# print
-data_water_isotopes_summ_well_year
-```
-
-Summarize water stable isotope data by well
-```{r summ-water-isotopes-well}
-# group water data computed in previous chunk by well and compute summary data
-data_water_isotopes_summ_well <- data_water_isotopes_summ_well_year  %>% group_by(sampling_site) %>% summarize(n = n(), H2O_dD_permil_VSMOW_mean_well = mean(H2O_dD_permil_VSMOW_mean_well_year), H2O_dD_permil_VSMOW_sd = sd(H2O_dD_permil_VSMOW_mean_well_year), H2O_d18O_permil_VSMOW_mean_well = mean(H2O_d18O_permil_VSMOW_mean_well_year), H2O_d18O_permil_VSMOW_sd = sd(H2O_d18O_permil_VSMOW_mean_well_year))
-
-# print
-data_water_isotopes_summ_well
-```
-
-Summarize all water stable isotope
-```{r summ-water-isotopes}
-# summarize water isotope data from all wells
-data_water_isotopes_summ <- data_water_isotopes_summ_well %>% ungroup() %>% summarize(n = n(), H2O_dD_permil_VSMOW_mean = mean(H2O_dD_permil_VSMOW_mean_well), H2O_dD_permil_VSMOW_sd = sd(H2O_dD_permil_VSMOW_mean_well), H2O_d18O_permil_VSMOW_mean = mean(H2O_d18O_permil_VSMOW_mean_well), H2O_d18O_permil_VSMOW_sd = sd(H2O_d18O_permil_VSMOW_mean_well))
-
-# print
-data_water_isotopes_summ
-```
-
-## Plot water stable isotope data
-```{r MWL-plot, fig.width=5.8, fig.height=4.5, warning=FALSE}
-# create plot
-MWL_plot <- data_water_isotopes %>% ggplot() +
-  
-  # add meteoric water lines
-  geom_abline(slope = 7.91, intercept = 8.72, color = "grey80", linetype = "dashed") + # GMWL, Terzer et al. 2013
-  annotate("text", label = "GMWL", x = -4.3, y = -23, angle = 52, color = "grey60") +
-  geom_abline(slope = 5.0, intercept = 10.7, color = "grey40") + # LMWL-N
-  annotate("text", label = "LMWL-N", x = -4, y = -7, angle = 40) +
-  geom_abline(slope = 7.2, intercept = -1.1, color = "grey40") + # LMWL-S
-  annotate("text", label = "LMWL-S", x = -2.4, y = -20, angle = 52) +
-
-  # plot Oman well data
-  geom_point(aes(
-  x = H2O_d18O_permil_VSMOW,
-  y = H2O_dD_permil_VSMOW,
-  color = as.character(year_sampled),
-  shape = sampling_site
-  ), size = 2.5, alpha = 1) +
-
-  # symbol styling
-  scale_shape_manual(values=c(1, 4, 0, 6, 5, 17, 3, 18, 16), name = "well", guide = guide_legend(order = 1))+
-  scale_color_manual(values = cbPalette_MWL, name = "year sampled", guide = guide_legend(order = 2)) +
-  
-  # axis styling
-  scale_x_continuous(limits = c(-5, 1), name = latex2exp::TeX("$\\delta^{18}O\\, /\\, \\[$‰$  \\, VSMOW \\]$")) +
-  scale_y_continuous(limits = c(-25, 10), name = latex2exp::TeX("$\\delta D\\, /\\, \\[$‰$  \\, VSMOW \\]$")) +
-  
-  # design
-  theme_classic(base_size = 12)
-
-# print plot
-MWL_plot 
-```
-# Summary of $\delta^{13}\text{C}_{\text{CH}_4}$, $\delta\text{D}_{\text{CH}_4}$ and $c_{\Sigma{\text{CO}_2}}$ data
-
-```{r summ-CD}
-# make data frame of CH4 d13C and dD data for all wells
-data_CD <- data %>% select(sampling_site, notes, year_sampled, depth_fluid_intake_mbct, water_type, CH4_d13C_permil_VPDB_LBNL, CH4_dD_permil_VSMOW_LBNL,
-CH4_d13C_permil_VPDB_CUB, CH4_dD_permil_VSMOW_CUB, CH4_d13C_permil_VPDB_MIT, CH4_dD_permil_VSMOW_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_dD_permil_VSMOW_UCLA, site)
-
-# compute means between analyses in multiple labs
-data_CD <- data_CD %>%
-    rowwise() %>%
-    mutate(CH4_d13C_permil_VPDB_interlab_mean  = mean(c(CH4_d13C_permil_VPDB_LBNL, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA), na.rm = TRUE))
-
-data_CD <- data_CD %>%
-    rowwise() %>%
-    mutate(CH4_dD_permil_VSMOW_interlab_mean  = mean(c(CH4_dD_permil_VSMOW_LBNL, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA), na.rm = TRUE))
-
-# remove samples without C and D isotope data
-data_CD <- data_CD %>% filter(!is.nan(CH4_d13C_permil_VPDB_interlab_mean) & !is.nan(CH4_dD_permil_VSMOW_interlab_mean))
-
-# print
-data_CD %>% select(sampling_site, notes, year_sampled, CH4_d13C_permil_VPDB_interlab_mean, CH4_dD_permil_VSMOW_interlab_mean)
-```
-
-Summarize WAB188 $\delta^{13}\text{C}_{\text{CH}_4}$ data
-```{r summ-WAB188}
-# make data frame of relevant data
-data_WAB188 <- data %>% filter(sampling_site == "WAB188") %>%  filter(!is.na(CH4_d13C_permil_VPDB_LBNL) | !is.na(CH4_d13C_permil_VPDB_CUB)) %>% select(year_sampled, CH4_d13C_permil_VPDB_LBNL,
-CH4_d13C_permil_VPDB_CUB)
-
-# print
-data_WAB188
-```
-
-```{r summ-WAB188-CH4-d13C}
-# make data frame of relevant data
-data_WAB188 <- data_WAB188 %>% mutate(CH4_d13C_permil_VPDB = ifelse(!is.na(CH4_d13C_permil_VPDB_LBNL), CH4_d13C_permil_VPDB_LBNL, CH4_d13C_permil_VPDB_CUB))
-
-# print
-data_WAB188 %>% summarise(n = n(), mean_CH4_d13C_permil_VPDB = mean(CH4_d13C_permil_VPDB), sd_CH4_d13C_permil_VPDB = sd(CH4_d13C_permil_VPDB))
-```
-
-Summarize WAB188 dissolved inorganic carbon data
-```{r summ-WAB188-DIC-all-years}
-# make data frame of relevant data
-data_WAB188_DIC <- data %>% filter(sampling_site == "WAB188") %>%  filter(DIC_was_measured == TRUE) %>% select(year_sampled, DIC_uM)
-
-# print
-data_WAB188_DIC
-```
-
-```{r summ-WAB188-DIC}
-# summarize and print
-data_WAB188_DIC %>% summarise(n = n(), mean_DIC_uM = mean(DIC_uM), sd_DIC_uM = sd(DIC_uM))
-```
-
-Summarize WAB71 $\delta^{13}\text{C}_{\text{CH}_4}$ data
-```{r summ-WAB71-d13C-CH4-all-years}
-# make data frame of relevant data
-data_WAB71 <- data %>% filter(sampling_site == "WAB71") %>%  filter(!is.na(CH4_d13C_permil_VPDB_LBNL) | !is.na(CH4_d13C_permil_VPDB_CUB)) %>% select(year_sampled, CH4_d13C_permil_VPDB_LBNL,
-CH4_d13C_permil_VPDB_CUB)
-
-# print
-data_WAB71
-```
-
-```{r summ-WAB71-d13C-CH4}
-# make data frame of relevant data
-data_WAB71 <- data_WAB71 %>% mutate(CH4_d13C_permil_VPDB = ifelse(!is.na(CH4_d13C_permil_VPDB_LBNL), CH4_d13C_permil_VPDB_LBNL, CH4_d13C_permil_VPDB_CUB))
-
-# print
-data_WAB71 %>% summarise(n = n(), mean_CH4_d13C_permil_VPDB = mean(CH4_d13C_permil_VPDB), sd_CH4_d13C_permil_VPDB = sd(CH4_d13C_permil_VPDB))
-```
-
-Summarize CM2A $\delta^{13}\text{C}_{\text{CH}_4}$ data
-```{r summ-CM2A-d13C-CH4-all-labs}
-# make data frame of relevant data
-data_CM2A <- data %>% filter(sampling_site == "CM2A") %>% select(CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA)
-
-# gather CH4 d13C across various labs
-data_CM2A_gathered <- data_CM2A %>% gather(key = "lab", value = "CH4_d13C_permil_VPDB")
-
-# print
-data_CM2A_gathered
-```
-
-```{r summ-CM2A-d13C}
-# summarize and print
-data_CM2A_gathered  %>% summarise(n = n(), mean_CH4_d13C_permil_VPDB = mean(CH4_d13C_permil_VPDB), sd_CH4_d13C_permil_VPDB = sd(CH4_d13C_permil_VPDB))
-```
-
-All wells
-
-```{r summ-CD-all-wells-interlab}
-# compute means for each year for each well
-data_CD_well_year_summ <- data_CD %>% group_by(sampling_site,year_sampled) %>% summarise(CH4_d13C_permil_VPDB_interlab_mean = mean(CH4_d13C_permil_VPDB_interlab_mean), CH4_dD_permil_VSMOW_interlab_mean = mean(CH4_dD_permil_VSMOW_interlab_mean), water_type = first(water_type))
-
-# print
-data_CD_well_year_summ
-```
-
-```{r summ-CD-all-wells-interannual}
-# compute means across years for each well
-data_CD_well_summ <- data_CD %>% group_by(sampling_site) %>% summarise(CH4_d13C_permil_VPDB_interannual_mean = mean(CH4_d13C_permil_VPDB_interlab_mean), CH4_d13C_permil_VPDB_interannual_sd = sd(CH4_d13C_permil_VPDB_interlab_mean), CH4_dD_permil_VSMOW_interannual_mean = mean(CH4_dD_permil_VSMOW_interlab_mean), CH4_dD_permil_VSMOW_interannual_sd = sd(CH4_dD_permil_VSMOW_interlab_mean), n = n(), water_type = first(water_type))
-
-# print
-data_CD_well_summ
-```
-
-# $c_{\text{CH}_4}$ vs. $c_{\text{H}_2}$ plot
-## Prepare data
-```{r get-CH4-H2-conc-data}
-# make data frame of CH4 and H2 concentration data
-data_CH4_H2 <- data %>% select(sampling_site, year_sampled, water_type, depth_fluid_intake_mbct,  depth_to_water_mbct, H2_uM, H2_was_measured, H2_unc_uM, H2_LQ_uM, CH4_uM, CH4_was_measured, CH4_unc_uM, CH4_LQ_uM)
-
-# filter for wells for which H2 and CH4 concentrations were measured from 2017 and 2018.
-data_CH4_H2 <- data_CH4_H2 %>% filter(year_sampled >= 2017) %>% filter(H2_was_measured == TRUE & CH4_was_measured == TRUE)
-
-# print
-data_CH4_H2 
-```
-
-```{r process-CH4-H2-conc-data}
-# add columns wherein the limit of quantification is substituted for NA value
-data_CH4_H2 <- data_CH4_H2 %>% mutate(H2_uM_LQ_sub_for_NA = if_else(is.na(H2_uM), H2_LQ_uM, H2_uM))
-
-data_CH4_H2 <- data_CH4_H2 %>% mutate(CH4_uM_LQ_sub_for_NA = if_else(is.na(CH4_uM), CH4_LQ_uM, CH4_uM))
-
-# take mean of concentration data where multiple analyses were performed on the same well in a given year
-data_CH4_H2 <- data_CH4_H2 %>% group_by(sampling_site, year_sampled) %>% summarise(water_type = first(water_type), H2_uM_LQ_sub_for_NA = mean(H2_uM_LQ_sub_for_NA), CH4_uM_LQ_sub_for_NA = mean(CH4_uM_LQ_sub_for_NA), H2_LQ_uM = mean(H2_LQ_uM), CH4_LQ_uM = mean(CH4_LQ_uM), H2_uM = mean(H2_uM), CH4_uM = mean(CH4_uM))
-
-data_CH4_H2 <- data_CH4_H2 %>% ungroup()
-
-# print
-data_CH4_H2
-```
-
-
-## Plot
-```{r H2-CH4-plot, fig.width = 3.54, fig.height = 4.5}
-# add factors for order of display in legend
-data_CH4_H2$water_type <- factor(data_CH4_H2$water_type, levels = c("gabbro", "Mg_HCO3", "Ca_OH"))
-
-# create plot
-H2_CH4_plot <- data_CH4_H2 %>% ggplot() +
-  
-  # plot data
-  aes(
-    x = H2_uM_LQ_sub_for_NA,
-    y = CH4_uM_LQ_sub_for_NA,
-    label = sampling_site,
-    color = water_type,
-    shape = as.character(year_sampled)
-    ) +
-    geom_point() +
-
-  # plot arrows denoting "below limit of quantitation"
-  geom_text(data = data_CH4_H2 %>% filter(is.na(CH4_uM)), aes(
-    x = H2_uM_LQ_sub_for_NA,
-    y = CH4_uM_LQ_sub_for_NA,
-    label = "^",
-    color = water_type
-    ), alpha = 0.7, angle = 180, nudge_y = -0.08, nudge_x = 0.01, show.legend = FALSE, size = 3) +
-
-  geom_text(data = data_CH4_H2 %>% filter(is.na(H2_uM)), aes(
-    x = H2_uM_LQ_sub_for_NA,
-    y = CH4_uM_LQ_sub_for_NA,
-    label = "^",
-    color = water_type
-    ), alpha = 0.7, angle = 90, nudge_x = -0.08, nudge_y = 0.0015, show.legend = FALSE, size = 3) +
-
-  # symbol styling  
-  scale_color_manual(name = "water type", values=cbPalette_water_types, guide = guide_legend(ncol= 1, order = 1), labels = unname(latex2exp::TeX(c("gabbro", "Mg$^{2+}$ - HCO$_{3}^{-}$", "Ca$^{2+}$ - OH$^{-}$"))))+
-  scale_shape_manual(name = "year sampled", values = c(19, 15, 17), guide = guide_legend(ncol = 1, order = 2)) +
-  # text labels
-  geom_text_repel(size=3.34, force = 1.1, segment.alpha = .3, show.legend = FALSE) +
-
-  # axis styling
-  scale_y_continuous(trans = 'log10',
-      breaks = trans_breaks('log10', function(x) 10 ^ x, n=6),
-      labels = trans_format('log10', math_format(10^.x)),
-      limits = c(8e-3, 1e3), expand = c(0, 0),
-      name = latex2exp::TeX("\\textit{c}_{CH_4} / $\\lbrack$µmol $\\cdot$ L$^{-1}$$\\rbrack$")) +
-  scale_x_continuous(trans = 'log10',
-      breaks = trans_breaks('log10', function(x) 10 ^ x, n=6),
-      labels = trans_format('log10', math_format(10^.x)),
-      limits = c(8e-3, 1e3), expand = c(0, 0),
-      name = latex2exp::TeX("\\textit{c}_{H_2} / $\\lbrack$µmol $\\cdot$ L$^{-1}$$\\rbrack$"))+
-  
-  # design  
-  theme_classic(base_size = 12)+
-  theme(
-    legend.position = "bottom",
-    legend.direction = "vertical",
-    legend.box = "horizontal",
-    legend.text.align = 0,
-    plot.margin = margin(7, 10, 1, 1, "pt")
-    )
-
-# print plot
-H2_CH4_plot
-```
-
-# $\delta\text{D}_{\text{CH}_4}$ vs. $\delta^{13}\text{C}_{\text{CH}_4}$ ("CD") plot
-## Prepare data
-Prepare Oman well data
-```{r get_CD_data}
-# make data frame of CH4 d13C data
-data_C_gathered <- data_CD %>% select(sampling_site, notes, year_sampled, water_type, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_d13C_permil_VPDB_LBNL, site, depth_fluid_intake_mbct) %>%
-  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled, -site, -depth_fluid_intake_mbct), names_to = "parameter", values_to = "CH4_d13C_permil_VPDB")
-
-# make a column for analytical laboratory
-data_C_gathered <- data_C_gathered %>% mutate(lab = case_when(
-str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
-str_detect(parameter, "CUB") == TRUE ~ "CUB",
-str_detect(parameter, "MIT") == TRUE ~ "MIT",
-str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
-))  %>%
-  select(-parameter)
-
-# data_C_gathered
-
-# repeat the above for dD
-data_D_gathered <- data_CD %>% select(sampling_site, notes, water_type, year_sampled, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA, CH4_dD_permil_VSMOW_LBNL) %>%
-  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled), names_to = "parameter", values_to = "CH4_dD_permil_VSMOW")
-
-data_D_gathered <- data_D_gathered %>% mutate(lab = case_when(
-str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
-str_detect(parameter, "CUB") == TRUE ~ "CUB",
-str_detect(parameter, "MIT") == TRUE ~ "MIT",
-str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
-))  %>%  select(-parameter)
-
-# combine 13C and D data
-data_CD_gathered <- full_join(data_C_gathered, data_D_gathered) %>%
-  filter(!is.na(CH4_d13C_permil_VPDB) | !is.na(CH4_dD_permil_VSMOW))
-
-data_CD_gathered
-```
-
-## Plot
-### Plot data
-```{r CD-plot, fig.width=3.5, fig.height=2.7, warning=FALSE}
-# Set coordinates of fields of origins (Milkov and Etiope 2018)
-
-primary_microbial <- data.frame(
-  x = c(-90, -50, -50, -60, -60, -90),
-  y = c(-450,-450,-250, -250, -100, -100)
-)
-
-secondary_microbial <- data.frame(
-  x = c(-60,-35,-35, -60),
-  y = c(-350, -200, -150, -175)
-)
-
-thermogenic <- data.frame(
-  x = c(-75, -60, -40, -15, -40),
-  y = c(-350, -350, -300, -150, -100)
-)
-
-abiotic <- data.frame(
-  x = c(-50, -10, 10, 10, -20, -50),
-  y = c(-450,-450, -350, -50, -50, -300)
-)
-
-# create plot
-CD_plot <-
-  ggplot() +
-
-  # add origin fields
-  geom_polygon(data = primary_microbial, aes(x=x, y=y), fill = microbial_color, alpha = microbial_opacity, color = microbial_color, size = .2) +
-  geom_polygon(data = secondary_microbial, aes(x=x, y=y), alpha = 0.1, fill = NA, color = "black", size = .2, linetype = "dashed") +
-  geom_polygon(data = thermogenic, aes(x=x, y=y), alpha = thermo_opacity, fill = thermogenic_color, color = thermogenic_color, size = .2) +
-  geom_polygon(data = abiotic, aes(x=x, y=y), alpha = abiotic_opacity, fill = abiotic_color, color = abiotic_color, size = .2) +
-
-  # plot literature data
-  geom_point(data = data_literature %>% filter(sample_type != "laboratory synthesis" ),  aes(
-    x = CH4_d13C_permil_VPDB,
-    y = CH4_dD_permil_VSMOW,
-    shape = site
-    ), alpha = 1) +
-
-  # plot Oman well data
-  geom_point(data = data_CD_gathered,  aes(
-    x = CH4_d13C_permil_VPDB,
-    y = CH4_dD_permil_VSMOW,
-    shape = site,
-    fill = sampling_site
-    ), alpha = 1) +
-
-  # axis styling
-  scale_y_continuous(name = latex2exp::TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$"), limits = c(-450, 0), expand = c(0,0)) +
-  scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$"), limits = c(-90, 15), expand = c(0,0)) +
-  
-  # symbol styling
-  scale_fill_manual(values = fill_5_wells_named, name="water type", guide = guide_legend(order = 2)) +
-  scale_shape_manual(values = shapes_all_sites_named, guide = guide_legend(ncol = 2, order = 1)) +
-
-  # annotations
-  annotate("text", y = -200, x= -80, size = 3, label = "PM", color = microbial_color) +
-  annotate("text", y = -185, x= -56.5, size = 3, label = "SM", color = "grey20") +
-  annotate("text", y = -130, x= -39, size = 3, label = "T", color = "grey20") +
-  annotate("text", y = -360, x= -25, size = 3, label = "A", color = "grey20") +
-
-  # design
-  theme_classic(base_size = 12)+
-  theme(
-    plot.margin = margin(5, 0, 0, 0, "pt"),
-    legend.position = "none"
-    )
-
-# print
-CD_plot
-```
-
-### Extract fill legend
-Make a dummy plot for extracting plot legend
-```{r extract-fill-legend, fig.width=3.5, fig.height=2.35}
-# add factors to data to organize legend entries labels
-data_CD_gathered$sampling_site <- factor(data_CD_gathered$sampling_site, levels = c("NSHQ04", "WAB71", "CM2A", "NSHQ14"))
-
-# create plot
-CD_leg_fill_plot <-
-  ggplot() +
-
-  # origin fields
-  geom_polygon(data = primary_microbial, aes(x=x, y=y), fill = microbial_color, alpha = microbial_opacity, color = microbial_color, size = .2)+
-  geom_polygon(data = secondary_microbial, aes(x=x, y=y), alpha = 0.1, fill = NA, color = "black", size = .2, linetype = "dashed")+
-  geom_polygon(data = thermogenic, aes(x=x, y=y), alpha = thermo_opacity, fill = thermogenic_color, color = thermogenic_color, size = .2)+
-  geom_polygon(data = abiotic, aes(x=x, y=y), alpha = abiotic_opacity, fill = abiotic_color, color = abiotic_color, size = .2)+
-
-  # plot Oman well data
-  geom_point(data = data_CD_gathered,  aes(
-    x = CH4_d13C_permil_VPDB,
-    y = CH4_dD_permil_VSMOW,
-    shape = site,
-    fill = sampling_site
-    ), alpha = 1) +
-
-  # axis styling
-  scale_y_continuous(name = latex2exp::TeX("$\\delta D_{CH_4}$$\\,$/$\\,$\\lbrack$$‰ VSMOW$\\rbrack$"), limits = c(-450, 0), expand = c(0,0), sec.axis = dup_axis())+
-  scale_x_continuous(name = latex2exp::TeX("$\\delta ^{13}C_{CH_4}$$\\,$/$\\,$‰ VPDB"), limits = c(-90, 15), expand = c(0,0), sec.axis = dup_axis())+
-  
-  # symbol styling
-  scale_fill_manual(values = fill_4_wells_named, name="well (this study)", guide = guide_legend(override.aes = list(shape = 21))) +
-  scale_shape_manual(values = shapes_all_sites_named, guide = FALSE)+
-
-  # annotations
-  annotate("text", y = -200, x= -80, size = 3, label = "PM", color = microbial_color) +
-  annotate("text", y = -185, x= -56.5, size = 3, label = "SM", color = "grey20") +
-  annotate("text", y = -130, x= -39, size = 3, label = "T", color = "grey20") +
-  annotate("text", y = -360, x= -25, size = 3, label = "A/CLM", color = "grey20") +
-
-  # design
-  theme_classic(base_size = 12)+
-  theme(panel.grid = element_blank(),
-    plot.margin = margin(0, 2, 1, 1, "pt"),
-    legend.position = "right",
-    axis.title.y.right = element_blank(),
-    axis.text.y.right = element_blank(),
-    axis.text.x.bottom = element_blank(),
-    axis.title.x = element_blank()
-    )
-```
-
-Extract fill legend
-```{r leg-fill-plot, fig.width=1.2, fig.height=1.2, warning = FALSE, message=FALSE}
-# extract shape legend
-leg_fill <- get_legend(CD_leg_fill_plot)
-
-# create plot
-leg_fill_plot <- plot_grid(leg_fill)
-
-# print plot
-leg_fill_plot
-```
 
 # C$_1$ / (C$_2$ + C$_3$) vs. $\delta^{13}\text{C}_{\text{CH}_4}$ ("Bernard") Plot
 ## Prepare data
@@ -1008,8 +562,9 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
 CH4_F14C_d13C_dD_plot <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
-  xmin = CH4_Fm - CH4_Fm_unc,
-  xmax = CH4_Fm + CH4_Fm_unc,
+  # x error bars are smaller than data points
+  # xmin = CH4_Fm - CH4_Fm_unc,
+  # xmax = CH4_Fm + CH4_Fm_unc,
   ymin = value - uncertainty_permil,
   ymax = value + uncertainty_permil,
   shape = as.character(year_sampled),
@@ -1019,7 +574,7 @@ CH4_F14C_d13C_dD_plot <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
 
   # error bars
   geom_linerange(orientation = "x") +
-  geom_linerange(orientation = "y") +
+  # geom_linerange(orientation = "y") +
   
   # points
   geom_point() +
@@ -1057,8 +612,8 @@ CH4_F14C_d13C_dD_plot
 CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% ggplot(aes(
   x = CH4_Fm,
   y = value,
-  xmin = CH4_Fm - CH4_Fm_unc,
-  xmax = CH4_Fm + CH4_Fm_unc,
+  # xmin = CH4_Fm - CH4_Fm_unc,
+  # xmax = CH4_Fm + CH4_Fm_unc,
   ymin = value - uncertainty_permil,
   ymax = value + uncertainty_permil,
   shape = as.character(year_sampled),
@@ -1068,7 +623,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape <- data_14CH4_NSHQ14_longer_longer %>% gg
 
   # error bars
   geom_linerange(orientation = "x") +
-  geom_linerange(orientation = "y") +
+  # geom_linerange(orientation = "y") +
   
   # points
   geom_point() +
@@ -1109,7 +664,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean <- CH4_F14C_d13C_dD_plot_year_color
   strip.background = element_blank(),
   strip.text = element_text(size = 11, vjust = 0),
     legend.position = "bottom",
-    legend.box.margin = margin(r=2),
+    legend.box.margin = margin(r=14),
     plot.margin = margin(l=0, t=0, b=1, r=0),
     legend.box.spacing = unit(0.1, "cm"),
     legend.text = element_text(size = 8.2),
@@ -1229,6 +784,63 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_per
 ```
 
 ### All NSHQ14 data 2014-2019 data
+Prepare Oman well data
+
+```{r data_CD}
+# make data frame of CH4 d13C and dD data for all wells
+data_CD <- data %>% select(sampling_site, notes, year_sampled, depth_fluid_intake_mbct, water_type, CH4_d13C_permil_VPDB_LBNL, CH4_dD_permil_VSMOW_LBNL,
+CH4_d13C_permil_VPDB_CUB, CH4_dD_permil_VSMOW_CUB, CH4_d13C_permil_VPDB_MIT, CH4_dD_permil_VSMOW_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_dD_permil_VSMOW_UCLA, site)
+
+# compute means between analyses in multiple labs
+data_CD <- data_CD %>%
+    rowwise() %>%
+    mutate(CH4_d13C_permil_VPDB_interlab_mean  = mean(c(CH4_d13C_permil_VPDB_LBNL, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA), na.rm = TRUE))
+
+data_CD <- data_CD %>%
+    rowwise() %>%
+    mutate(CH4_dD_permil_VSMOW_interlab_mean  = mean(c(CH4_dD_permil_VSMOW_LBNL, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA), na.rm = TRUE))
+
+# remove samples without C and D isotope data
+data_CD <- data_CD %>% filter(!is.nan(CH4_d13C_permil_VPDB_interlab_mean) & !is.nan(CH4_dD_permil_VSMOW_interlab_mean))
+
+# print
+data_CD %>% select(sampling_site, notes, year_sampled, CH4_d13C_permil_VPDB_interlab_mean, CH4_dD_permil_VSMOW_interlab_mean)
+```
+
+
+```{r data_CD_gathered}
+# make data frame of CH4 d13C data
+data_C_gathered <- data_CD %>% select(sampling_site, notes, year_sampled, water_type, CH4_d13C_permil_VPDB_CUB, CH4_d13C_permil_VPDB_MIT, CH4_d13C_permil_VPDB_UCLA, CH4_d13C_permil_VPDB_LBNL, site, depth_fluid_intake_mbct) %>%
+  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled, -site, -depth_fluid_intake_mbct), names_to = "parameter", values_to = "CH4_d13C_permil_VPDB")
+
+# make a column for analytical laboratory
+data_C_gathered <- data_C_gathered %>% mutate(lab = case_when(
+str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
+str_detect(parameter, "CUB") == TRUE ~ "CUB",
+str_detect(parameter, "MIT") == TRUE ~ "MIT",
+str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
+))  %>%
+  select(-parameter)
+
+# data_C_gathered
+
+# repeat the above for dD
+data_D_gathered <- data_CD %>% select(sampling_site, notes, water_type, year_sampled, CH4_dD_permil_VSMOW_CUB, CH4_dD_permil_VSMOW_MIT, CH4_dD_permil_VSMOW_UCLA, CH4_dD_permil_VSMOW_LBNL) %>%
+  pivot_longer(cols = c(-sampling_site, -notes, -water_type, -year_sampled), names_to = "parameter", values_to = "CH4_dD_permil_VSMOW")
+
+data_D_gathered <- data_D_gathered %>% mutate(lab = case_when(
+str_detect(parameter, "LBNL") == TRUE ~ "LBNL",
+str_detect(parameter, "CUB") == TRUE ~ "CUB",
+str_detect(parameter, "MIT") == TRUE ~ "MIT",
+str_detect(parameter, "UCLA") == TRUE ~ "UCLA"
+))  %>%  select(-parameter)
+
+# combine 13C and D data
+data_CD_gathered <- full_join(data_C_gathered, data_D_gathered) %>%
+  filter(!is.na(CH4_d13C_permil_VPDB) | !is.na(CH4_dD_permil_VSMOW))
+```
+
+
 ```{r get-CD-isotope-data-for-NSHQ14}
 data_CD_gathered_NSHQ14 <- data_CD_gathered %>%
   # only samples from NSHQ14
