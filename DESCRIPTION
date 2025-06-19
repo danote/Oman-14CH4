@@ -1,0 +1,40 @@
+Type: Compendium
+Package: Oman-14CH4
+Title: Supplementary Information for Active conversion of
+    atmospheric carbon dioxide to methane in serpentinites of the Samail
+    ophiolite, Oman
+Version: 0.0.1
+Authors@R:
+    person("Daniel", "Nothaft", , "danie.nothaft@colorado.edu", role = c("aut", "cre"))
+Description: Supplementary Information for Active conversion of
+    atmospheric carbon dioxide to methane in serpentinites of the Samail
+    ophiolite, Oman
+License: MIT
+Depends: 
+    chemCal,
+    cowplot,
+    dplyr,
+    ggpmisc,
+    ggrepel,
+    glue,
+    grid,
+    gtable,
+    isoprocessor,
+    isoreader,
+    knitr,
+    latex2exp,
+    lemon,
+    plotly,
+    purrr,
+    readxl,
+    rlang,
+    rmarkdown,
+    scales,
+    stringr,
+    tibble,
+    tidyr,
+    tidyverse,
+    tools,
+    utils
+Encoding: UTF-8
+LazyData: true
