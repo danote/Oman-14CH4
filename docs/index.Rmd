@@ -1,7 +1,7 @@
 ---
-title: "Project name"
+title: "Supplementary Information for: Active conversion of atmospheric carbon dioxide to methane in serpentinites of the Samail ophiolite, Oman"
 subtitle: "Log: [docs.Rmd](docs.html)"
-author: "Author: "
+author: "Authors: Daniel B. Nothaft, Alexis S. Templeton, Peter B. Kelemen, Eric S. Boyd, Juerg M. Matter, and The Oman Drilling Project Science Team"
 output:
   html_document: 
     number_sections: yes
