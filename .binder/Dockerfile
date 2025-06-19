@@ -1,8 +1,6 @@
-FROM rocker/binder:4.0.2
+FROM rocker/binder:4.5.1
 LABEL maintainer='Daniel Nothaft'
-USER root
-COPY . ${R_HOME}
-RUN chown -R ${NB_USER} ${R_HOME}
+COPY --chown=${NB_USER} . ${HOME}
 USER ${NB_USER}
 
 
