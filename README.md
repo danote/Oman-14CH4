@@ -8,8 +8,6 @@ We hope that this code, or any part of it, might prove useful to other members o
 
 The code can be run on [binder](https://mybinder.org/v2/gh/danote/Oman-packers-2018-2019/master) by clicking on the badge below.
 
-The code can be run on [binder](https://mybinder.org/v2/gh/danote/Oman-packers-2018-2019/master) by clicking on the badge below.
-
 <!-- badges: start -->
 [![Launch Rstudio Binder](http://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/danote/Oman-14CH4/master?urlpath=rstudio)
 <!-- badges: end -->
