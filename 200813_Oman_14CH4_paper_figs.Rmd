@@ -1106,3 +1106,148 @@ Calculate relative difference (%) of the UCI and NOSAMS samples
 (F14C_CH4_measured_NOSAMS - F14C_CH4_measured_UCI) / mean(F14C_CH4_measured_NOSAMS, F14C_CH4_measured_UCI) * 100
 ```
 
+# Anderson-Schulz-Flory distribution
+Get the relevant data
+```{r}
+# select relevant hydrocarbon concentration data from well NSHQ14
+data_ASF_NSHQ14 <- data %>% filter(sampling_site == "NSHQ14") %>% select(year_sampled, depth_fluid_intake_mbct, notes, CH4_uM, C2H6_uM, C3H8_uM, n_C4H10_uM, i_C4H10_uM, n_C5H12_uM, i_C5H12_uM, C6H14_uM)
+
+data_ASF_NSHQ14_sumC4_C5 <- data_ASF_NSHQ14 %>% 
+  rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    C4_sum = sum(n_C4H10_uM,i_C4H10_uM, na.rm = T), # Select columns and replace NAs with 0
+    C5_sum = sum(n_C5H12_uM,i_C5H12_uM, na.rm = T) # Select columns and replace NAs with 0
+  ) %>%
+  ungroup() %>%  # Remove rowwise grouping
+select(year_sampled, year_sampled, depth_fluid_intake_mbct, notes, CH4_uM, C2H6_uM, C3H8_uM, C4_sum, C5_sum, C6H14_uM) %>% 
+  filter(!is.na(C3H8_uM)) #filter out samples that don't at least have a propane detection
+  
+data_ASF_NSHQ14
+
+data_ASF_NSHQ14_sumC4_C5 
+```
+
+Calculate mole fractions
+```{r}
+data_ASF_NSHQ14_sumC4_C5 <- data_ASF_NSHQ14_sumC4_C5 %>% 
+    rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    sum_C1_thru_C6 = sum(
+            c_across(CH4_uM:C6H14_uM))
+    ) %>% 
+  ungroup() # Remove rowwise grouping
+
+# calculate mole fractions
+data_ASF_NSHQ14_mol_frac <- data_ASF_NSHQ14_sumC4_C5 %>% 
+  mutate(
+C1_mol_frac = CH4_uM / sum_C1_thru_C6,
+C2_mol_frac = C2H6_uM / sum_C1_thru_C6,
+C3_mol_frac = C3H8_uM / sum_C1_thru_C6,
+C4_mol_frac = C4_sum / sum_C1_thru_C6,
+C5_mol_frac = C5_sum / sum_C1_thru_C6,
+C6_mol_frac = C6H14_uM / sum_C1_thru_C6,
+    ) %>% 
+  select(year_sampled, year_sampled, depth_fluid_intake_mbct, notes, C1_mol_frac, C2_mol_frac, C3_mol_frac, C4_mol_frac, C5_mol_frac, C6_mol_frac)
+
+
+data_ASF_NSHQ14_sumC4_C5
+
+data_ASF_NSHQ14_mol_frac
+```
+Prep for plotting
+```{r}
+# make carbon number its own column for plotting
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac %>% pivot_longer(
+  cols = starts_with("C"),
+  names_to = "C_number",
+  values_to = "mol_frac"
+) %>% mutate(
+  C_number = C_number %>% str_sub(2,2) %>% as.numeric()
+)
+
+# take log10 of mol_frac
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer %>%
+  filter(mol_frac != 0) %>% # remove rows of 0 mol fraction
+  mutate(log10_mol_frac = log10(mol_frac)) # take log10
+  
+
+data_ASF_NSHQ14_mol_frac_longer
+```
+
+```{r plot-ASF-NSHQ14}
+data_ASF_NSHQ14_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = as.character(year_sampled), shape = notes, ))+
+  geom_point()+
+  scale_shape_manual(values = c(1), na.value = 3) +
+  # scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
+    # scale_fill_manual(values = c("black", "gray")) +
+  # scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
+  # scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
+  theme_classic()
+```
+```{r plot-ASF-NSHQ14-2018}
+data_ASF_NSHQ14_mol_frac_longer_2018 <- data_ASF_NSHQ14_mol_frac_longer %>% filter(year_sampled == 2018)
+
+data_ASF_NSHQ14_mol_frac_longer_2018_plot <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
+  geom_point()+
+  scale_shape_discrete(na.value = 17) +
+  # scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
+  # scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
+  # scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
+  theme_classic()
+
+data_ASF_NSHQ14_mol_frac_longer_2018_plot
+```
+```{r lm-NSHQ14_C2-C6}
+data_ASF_NSHQ14_mol_frac_longer_2018_C2_C6 <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% filter(C_number > 1)
+
+# generate linear model
+model_NSHQ14_mol_frac_longer_2018_C2_C6 = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_NSHQ14_mol_frac_longer_2018_C2_C6)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C6_int <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C6)[1] %>% as.numeric()
+model_NSHQ14_mol_frac_longer_2018_C2_C6_slope <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C6)[2] %>% as.numeric()
+
+# print model summary
+summary(model_NSHQ14_mol_frac_longer_2018_C2_C6)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C6_int
+model_NSHQ14_mol_frac_longer_2018_C2_C6_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C6 region
+```{r}
+(alpha_ASF_slope_NSHQ14_2018_C2_C6 <- 10^model_NSHQ14_mol_frac_longer_2018_C2_C6_slope)
+(alpha_ASF_int_NSHQ14_2018_C2_C6 <- 1 - 10^model_NSHQ14_mol_frac_longer_2018_C2_C6_int)
+```
+
+
+
+```{r lm-NSHQ14_C2-C4}
+data_ASF_NSHQ14_mol_frac_longer_2018_C2_C4 <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% filter(C_number > 1 & C_number < 5)
+
+# generate linear model
+model_NSHQ14_mol_frac_longer_2018_C2_C4 = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_NSHQ14_mol_frac_longer_2018_C2_C4)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C4_int <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C4)[1] %>% as.numeric()
+model_NSHQ14_mol_frac_longer_2018_C2_C4_slope <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C4)[2] %>% as.numeric()
+
+# print model summary
+summary(model_NSHQ14_mol_frac_longer_2018_C2_C4)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C4_int
+model_NSHQ14_mol_frac_longer_2018_C2_C4_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C4 region
+```{r}
+(alpha_ASF_slope_NSHQ14_2018_C2_C4 <- 10^model_NSHQ14_mol_frac_longer_2018_C2_C4_slope)
+(alpha_ASF_int_NSHQ14_2018_C2_C4 <- 1 - 10^model_NSHQ14_mol_frac_longer_2018_C2_C4_int)
+```
+
+```{r plot-ASF-NSHQ14-2018-lms}
+data_ASF_NSHQ14_mol_frac_longer_2018_plot +
+  geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C6_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C6_slope)) +
+    geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C4_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C4_slope), linetype="dashed", color = "red")
+```
+
