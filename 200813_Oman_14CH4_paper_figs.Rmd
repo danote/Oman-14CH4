@@ -70,7 +70,7 @@ data
 Load in comparison data from the literature
 ```{r load-lit-data}
 # read comparison data from literature
-data_literature <-  read_excel("data_raw/Summary_metadata/CH4_isotope_literature_data.xlsx", na = "NA")
+data_literature <-  read_csv("data_raw/Summary_metadata/CH4_isotope_literature_data.csv", na = "NA")
 
 # Filter for only samples mentioning chromite or chromitite for Greek rock crushings
 data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_detect(Lithology, "hromit") == TRUE, !is.na(site)))
@@ -676,7 +676,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean
 CH4_F14C_d13C_dD_plot_year_color_shape_clean %>% tag_facet_keep_strip(
   open = "",
   close = "",
-  tag_pool = LETTERS
+  tag_pool = letters
 )
 ```
 
@@ -1176,14 +1176,13 @@ data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer %>%
 data_ASF_NSHQ14_mol_frac_longer
 ```
 
-```{r plot-ASF-NSHQ14}
+```{r plot-ASF-NSHQ14, fig.width=6, fig.height=4}
 data_ASF_NSHQ14_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = as.character(year_sampled), shape = notes, ))+
   geom_point()+
   scale_shape_manual(values = c(1), na.value = 3) +
-  # scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
-    # scale_fill_manual(values = c("black", "gray")) +
-  # scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
-  # scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
+  scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
+  scale_x_continuous(name = "C number", n.breaks = 6) +
+  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
   theme_classic()
 ```
 ```{r plot-ASF-NSHQ14-2018}
@@ -1192,9 +1191,9 @@ data_ASF_NSHQ14_mol_frac_longer_2018 <- data_ASF_NSHQ14_mol_frac_longer %>% filt
 data_ASF_NSHQ14_mol_frac_longer_2018_plot <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
   geom_point()+
   scale_shape_discrete(na.value = 17) +
-  # scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
-  # scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
-  # scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
+  scale_color_manual(values = cbPalette_MWL) +
+  scale_x_continuous(name = "C number", n.breaks = 6) +
+  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
   theme_classic()
 
 data_ASF_NSHQ14_mol_frac_longer_2018_plot
@@ -1282,6 +1281,7 @@ Summarize Lost City data absolute concentrations
 ```{r}
 # calculate means and standard errors
 data_ASF_LCHF_conc_summ <- data_ASF_LCHF_sumC2_C4 %>% summarise(
+  n=n(),
   C1_conc_mean = mean(CH4_conc),
   C1_mol_frac_stderr = sd(CH4_conc) / sqrt(length(CH4_conc)),
   C1_stderr_over_mean_percent = C1_mol_frac_stderr / C1_conc_mean * 100,
@@ -1358,11 +1358,6 @@ Showing standard error / mean in percentage form to describe representativeness 
 data_ASF_LCHF_mol_frac_summ %>% select(contains("stderr_over_mean"))
 ```
 
-```{r}
-# data_ASF_LCHF_mol_frac_summ %>% select(contains("mol_frac_mean"))
-```
-
-
 Prep for plotting
 ```{r}
 # make carbon number its own column for plotting
@@ -1374,32 +1369,76 @@ data_ASF_LCHF_mol_frac_longer <- data_ASF_LCHF_mol_frac_summ %>% pivot_longer(
   C_number = C_number %>% str_sub(2,2) %>% as.numeric()
 ) %>% select(C_number, mol_frac)
 
-# data_ASF_LCHF_mol_frac_longer_stderr <- data_ASF_LCHF_mol_frac_summ %>% pivot_longer(
-#         cols = contains("stderr"),
-#   names_to = "C_number",
-#   values_to = "mol_frac_stderr"
-# ) %>% mutate(
-#   C_number = C_number %>% str_sub(2,2) %>% as.numeric()
-# ) %>% select(C_number, mol_frac_stderr)
-# 
-# data_ASF_LCHF_mol_frac_longer_and_stderr <- data_ASF_LCHF_mol_frac_longer %>% left_join(data_ASF_LCHF_mol_frac_longer_stderr, by = "C_number")
 
 # take log10 of mol_frac and stderr
 data_ASF_LCHF_mol_frac_longer <-data_ASF_LCHF_mol_frac_longer %>%
   mutate(log10_mol_frac = log10(mol_frac)) # take log10
-    # mutate(stderr_over_mean_percent = mol_frac_stderr / mol_frac * 100) # take log10
   
 
 data_ASF_LCHF_mol_frac_longer
 ```
 
-```{r plot-ASF-NSHQ14}
+```{r plot-ASF-Lost-City}
 data_ASF_LCHF_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
   geom_point()+
   scale_shape_manual(values = c(1), na.value = 3) +
-  # scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
-    # scale_fill_manual(values = c("black", "gray")) +
-  # scale_x_continuous(name = TeX("CH$_4$ fraction modern"), limits = c(0,0.31), expand = c(0,0)) +
-  # scale_y_continuous(name = TeX("$C_1$/($C_{2}$+$C_{3}$)"), limits = c(0,1200), expand = c(0,0)) +
   theme_classic()
+```
+
+## Lost City NSHQ14 comparison
+
+```{r}
+data_ASF_LCHF_mol_frac_longer <- data_ASF_LCHF_mol_frac_longer %>% mutate(site = "Lost City") %>% select(C_number, log10_mol_frac, site)
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer %>% mutate(site = "NSHQ14") %>% select(C_number, log10_mol_frac, site)
+
+data_ASF_NSHQ14_LCHF <- data_ASF_LCHF_mol_frac_longer %>% bind_rows(data_ASF_NSHQ14_mol_frac_longer)
+
+data_ASF_NSHQ14_LCHF
+```
+
+```{r plot-ASF-Lost-City-NSHQ14}
+data_ASF_NSHQ14_LCHF_plot <- data_ASF_NSHQ14_LCHF %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = site, shape = site))+
+  geom_point()+
+  scale_color_manual(values = cbPalette_MWL) +
+  scale_x_continuous(name = "C number", n.breaks = 6) +
+  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
+  theme_classic()
+
+data_ASF_NSHQ14_LCHF_plot
+```
+
+
+```{r lm-LCHF_C2-C4}
+# generate linear model
+model_LCHF_mol_frac_longer = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_LCHF_mol_frac_longer %>% filter(C_number > 1))
+
+model_LCHF_mol_frac_longer_int <- coef(model_LCHF_mol_frac_longer)[1] %>% as.numeric()
+model_LCHF_mol_frac_longer_slope <- coef(model_LCHF_mol_frac_longer)[2] %>% as.numeric()
+
+# print model summary
+summary(model_LCHF_mol_frac_longer)
+
+model_LCHF_mol_frac_longer_int
+model_LCHF_mol_frac_longer_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C4 region
+```{r}
+(alpha_ASF_slope_LCHF <- 10^model_LCHF_mol_frac_longer_slope)
+(alpha_ASF_int_LCHF <- 1 - 10^model_LCHF_mol_frac_longer_int)
+```
+
+```{r plot-ASF-NSHQ14-LCHF-fits, fig.width=6, fig.height=4}
+linetype_scale_ASF_fits <- c("solid", "dashed", "dotted")
+names(linetype_scale_ASF_fits) <- c("NSHQ14 C2-C6", "NSHQ14 C2-C4", "Lost City C2-C4")
+  
+  
+data_ASF_NSHQ14_LCHF_plot +
+  geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C6_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C6_slope, linetype = "NSHQ14 C2-C6"), color = cbPalette_MWL[2], alpha = 0.25) +
+    geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C4_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C4_slope, linetype="NSHQ14 C2-C4"), color = cbPalette_MWL[2], alpha = 0.25)+
+    geom_abline(aes(intercept = model_LCHF_mol_frac_longer_int, slope = model_LCHF_mol_frac_longer_slope, linetype="Lost City C2-C4"), color = cbPalette_MWL[1], alpha = 0.25) +
+    scale_linetype_manual(name = "lines of best fit",  values = linetype_scale_ASF_fits)
+
+
 ```
