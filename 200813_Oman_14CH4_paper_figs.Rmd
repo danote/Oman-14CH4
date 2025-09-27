@@ -70,7 +70,7 @@ data
 Load in comparison data from the literature
 ```{r load-lit-data}
 # read comparison data from literature
-data_literature <-  read_csv("data_raw/Summary_metadata/CH4_isotope_literature_data.csv", na = "NA")
+data_literature <-  read_xlsx("data_raw/Summary_metadata/CH4_isotope_literature_data.xlsx", na = "NA")
 
 # Filter for only samples mentioning chromite or chromitite for Greek rock crushings
 data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_detect(Lithology, "hromit") == TRUE, !is.na(site)))
@@ -115,7 +115,7 @@ fill_5_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#
 
 # levels (for order of appearance in legend)
 
-data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek"))
+data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek", "Lost City"))
 
 # shapes
 
@@ -1255,6 +1255,7 @@ data_ASF_NSHQ14_mol_frac_longer_2018_plot +
 ## Lost City
 
 Get the relevant data
+
 ```{r}
 # select relevant hydrocarbon concentration data from Lost City (Proskurowski et al., 2008)
 data_ASF_LCHF <- data_literature %>% filter(site == "Lost City") %>% filter(author == "Proskurowski et al.") %>% select(CH4_conc, C2H6_conc, C2H4_conc, C3H8_conc, n_C4H10_conc, i_C4H10_conc)
@@ -1389,7 +1390,7 @@ data_ASF_LCHF_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
 
 ```{r}
 data_ASF_LCHF_mol_frac_longer <- data_ASF_LCHF_mol_frac_longer %>% mutate(site = "Lost City") %>% select(C_number, log10_mol_frac, site)
-data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer %>% mutate(site = "NSHQ14") %>% select(C_number, log10_mol_frac, site)
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% mutate(site = "NSHQ14") %>% select(C_number, log10_mol_frac, site)
 
 data_ASF_NSHQ14_LCHF <- data_ASF_LCHF_mol_frac_longer %>% bind_rows(data_ASF_NSHQ14_mol_frac_longer)
 
