@@ -384,7 +384,7 @@ alkanes_d13C_oman_wells_and_lit_plot <- ggplot() +
     guides(color = guide_legend(override.aes=list(shape=21))) +
 
   # axis styling
-  scale_x_continuous(name = "C atoms in alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
+  scale_x_continuous(name = "C atoms per alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
   scale_y_continuous(name = latex2exp::TeX("$\\delta ^{13}C$$\\,$/$\\,$\\lbrack$$‰ VPDB$\\rbrack$"))+
   
   # design
@@ -464,7 +464,7 @@ alkanes_d13C_oman_only_plot <- ggplot() +
     guides(color = guide_legend(override.aes=list(shape=21))) +
 
   # axis styling
-  scale_x_continuous(name = "C atoms in alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
+  scale_x_continuous(name = "C atoms per alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
   scale_y_continuous(name = latex2exp::TeX("$\\delta ^{13}C$$\\,$/$\\,$\\lbrack$$‰ VPDB$\\rbrack$"))+
   
   # design
@@ -1181,8 +1181,8 @@ data_ASF_NSHQ14_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac,
   geom_point()+
   scale_shape_manual(values = c(1), na.value = 3) +
   scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
-  scale_x_continuous(name = "C number", n.breaks = 6) +
-  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
   theme_classic()
 ```
 ```{r plot-ASF-NSHQ14-2018}
@@ -1192,8 +1192,8 @@ data_ASF_NSHQ14_mol_frac_longer_2018_plot <- data_ASF_NSHQ14_mol_frac_longer_201
   geom_point()+
   scale_shape_discrete(na.value = 17) +
   scale_color_manual(values = cbPalette_MWL) +
-  scale_x_continuous(name = "C number", n.breaks = 6) +
-  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
   theme_classic()
 
 data_ASF_NSHQ14_mol_frac_longer_2018_plot
@@ -1401,8 +1401,8 @@ data_ASF_NSHQ14_LCHF
 data_ASF_NSHQ14_LCHF_plot <- data_ASF_NSHQ14_LCHF %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = site, shape = site))+
   geom_point()+
   scale_color_manual(values = cbPalette_MWL) +
-  scale_x_continuous(name = "C number", n.breaks = 6) +
-  scale_y_continuous(name = TeX("Log$_{10}$ mole fraction")) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
   theme_classic()
 
 data_ASF_NSHQ14_LCHF_plot
