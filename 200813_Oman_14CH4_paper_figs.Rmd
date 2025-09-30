@@ -549,7 +549,7 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
     tex_params = as_factor(parameter)%>% 
       fct_recode(
         "$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$" = "CH4_d13C_permil_VPDB",
-                "$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
+                "$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
   )) %>% 
   # make shorter note for NSHQ14
   mutate(notes_short = if_else(notes == "no purge (NP)", "NP", NA_character_))
@@ -774,7 +774,7 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_per
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
   geom_point()+
   scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic() +
   theme(
     plot.margin = margin(r = 12)
@@ -878,7 +878,7 @@ data_CD_gathered_NSHQ14 %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_perm
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"))) +
   geom_point()+
   scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic()
 ```
 

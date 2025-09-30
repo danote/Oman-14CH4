@@ -1,0 +1,408 @@
+---
+---
+---
+---
+---
+title: "NSHQ14 well logs from 2018"
+subtitle: "Source file: 200814_Oman_well_logs_14C_carbonate.Rmd"
+author: "Daniel Nothaft"
+date: "`r format(Sys.Date(), '%d %b %Y')`"
+output:
+  html_document: 
+    df_print: paged # omit to disable paged data table output
+    css: stylesheet.css # omit if no need for custom stylesheet
+    number_sections: yes # change to no for unnumbered sections
+    toc: yes # change to no to disable table of contents
+    toc_float: true # change to false to keep toc at the top
+    toc_depth: 3 # change to specify which headings to include in toc
+    code_folding: show # change to hide to hide code by default
+editor_options:
+  chunk_output_type: inline
+---
+# Setup
+## Load code libraries
+```{r setup, message=FALSE, warning=FALSE}
+# load libraries
+library(tidyverse) # dplyr, tidyr, ggplot
+library(readxl) # reading excel files
+library(knitr) # generating reports
+library(ggpmisc) # add equations of best fit to ggplot
+library(scales) # making log scales with exponents
+library(lemon) # repeat axis lines for paneled figures in ggplot
+
+# global knitting options for automatic saving of all plots as .png and .pdf
+knitr::opts_chunk$set(
+  dev = c("png", "pdf"), fig.keep = "all",
+  dev.args = list(pdf = list(encoding = "WinAnsi", useDingbats = FALSE)),
+  fig.path = file.path("fig_output/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input()))),
+  cache.path = file.path("cache/", paste0(gsub("\\.[Rr]md", "/", knitr::current_input())))
+)
+```
+
+```{r source}
+# source all relevant scripting files
+source(file.path("scripts", "plotting_functions.R"))
+```
+
+## Load data
+
+```{r load-data}
+# read NSHQ14 borehole log from March 17th, 2018
+NSHQ14_profile_raw <- read_xlsx("data_raw/Summary_metadata/NSHQ14_QL40IDRO_20180317_down_5cm.xlsx", na = c("-99999.00", "-99999"))
+
+# read BA3A borehole log from March 18th, 2018
+BA3A_profile_raw <- read_xlsx("data_raw/Summary_metadata/BA3A_QL40IDRO_20180318_down_5cm.xlsx", na = c("-99999.00", "-99999"))
+
+# Read in conversion from Ag/AgCl electrode to SHE as function of T
+Ag_AgCl_E_T <- read_xlsx("data_raw/Summary_metadata/Ag_AgCl_E_T.xlsx", na = "NA")
+```
+
+# NSHQ14 well log
+
+## clean up data
+```{r get-relevant-log-data-NSHQ14}
+# select relevant columns and rename them
+NSHQ14_profile <- NSHQ14_profile_raw %>% select(depth_sampled_mbgl = `DEPT[M]`, P_dbar = PRESSURE, T_C = TEMPERATURE, pH = PH, ORP_mV_Ag_AgCl = REDOX, cond_uS_per_cm = `COND(FW)`)
+
+# Filter out nonsense values (i.e. when probe is above water table)
+NSHQ14_profile <- NSHQ14_profile %>% filter(!is.na(ORP_mV_Ag_AgCl))
+
+# print some summary statistics
+NSHQ14_profile %>% summary()
+```
+
+```{r subset-and-print-log-NSHQ14}
+# subset the data for readability and print
+NSHQ14_profile %>% slice(seq(from = 1, to = 30000, by = 1000)) %>% kable(digits=1)
+```
+
+## Convert to ORP to SHE
+
+Plot conversion between Ag/AgCl electrode and SHE as function of temperature
+```{r plot-Ag-AgCl-SHE-conversion}
+formula <- Ag_AgCl_E_T$E_Ag_AgCl_KCl_sat_mV ~ Ag_AgCl_E_T$T_C
+
+plot_redox_offset_T <- Ag_AgCl_E_T %>% ggplot(aes(x = T_C, y = E_Ag_AgCl_KCl_sat_mV))+
+  geom_point()+
+  geom_smooth(method="lm")+
+    stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")), formula = y ~ x, parse = TRUE, rr.digits = 2, label.x = .2, label.y = .9)+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_redox_offset_T
+```
+Save a linear model of the relationship between Ag/AgCl electrode and SHE as function of temperature
+```{r save-lm-Ag-AgCl-SHE}
+Ag_AgCl_E_T_lm <- lm(formula)
+
+Ag_AgCl_E_T_lm_summ <- Ag_AgCl_E_T_lm %>% summary()
+
+Ag_AgCl_E_T_lm_summ
+```
+Save slope
+```{r save-lm-Ag-AgCl-SHE-slope}
+Ag_AgCl_E_T_lm_slope <- coef(Ag_AgCl_E_T_lm_summ)["Ag_AgCl_E_T$T_C",  "Estimate"]
+
+Ag_AgCl_E_T_lm_slope
+```
+Save intercept
+```{r save-lm-Ag-AgCl-SHE-int}
+Ag_AgCl_E_T_lm_int <- coef(Ag_AgCl_E_T_lm_summ)["(Intercept)",  "Estimate"]
+
+Ag_AgCl_E_T_lm_int
+```
+
+Apply conversion
+```{r apply-Ag-AgCl-SHE-conversion-NSHQ14}
+NSHQ14_profile <- NSHQ14_profile %>% mutate(Eh_mV = ORP_mV_Ag_AgCl + Ag_AgCl_E_T_lm_int + Ag_AgCl_E_T_lm_slope * T_C) # convert probe ORP_mV_Ag_AgCl reading from Ag/AgCl to SHE
+
+# print some summary statistics
+NSHQ14_profile %>% select(Eh_mV) %>% summary()
+```
+Checking values around 20 m and 25 m
+```{r check-vals-20-25m}
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 19.99 & depth_sampled_mbgl < 20.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_uS_per_cm)
+
+NSHQ14_profile %>% filter(depth_sampled_mbgl > 24.99 & depth_sampled_mbgl < 25.01) %>% select(depth_sampled_mbgl, pH, Eh_mV, cond_uS_per_cm)
+```
+
+
+## Hydrostatic pressure
+
+Calculate from theory
+```{r calc-hydrostatic-P-NSHQ14}
+P_NSHQ14_atmospheric_Pa <- 95490 # measured ambient pressure with Garmin GPSMAP 64S by DBN in 2019
+P_NSHQ14_atmospheric_bar <-  P_NSHQ14_atmospheric_Pa * 1e-5
+
+water_level_NSHQ14_m <- as.numeric(NSHQ14_profile %>% select(depth_sampled_mbgl) %>% min())
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(water_column_above_m = depth_sampled_mbgl - water_level_NSHQ14_m)
+
+
+# Hydrostatic pressure in a liquid can be calculated as
+# 
+# p = ρ g h                         (1)
+# 
+# where
+# 
+# p = pressure in liquid (N/m2, Pa, lbf/ft2, psf)
+# 
+# ρ = density of liquid (kg/m3, slugs/ft3)
+# 
+# g = acceleration of gravity (9.81 m/s2, 32.17405 ft/s2)
+# 
+# h = height of fluid column - or depth in the fluid where pressure is measured (m, ft)
+
+# https://www.engineeringtoolbox.com/hydrostatic-pressure-water-d_1632.html
+
+density_water <- 1000 # kg/m3
+g = 9.81 # acceleration of gravity, m/s2
+
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_hydrostatic_calc_Pa = P_NSHQ14_atmospheric_Pa + density_water * g * water_column_above_m)
+
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_hydrostatic_calc_bar = P_hydrostatic_calc_Pa * 1e-5)
+
+# print some summary statistics
+NSHQ14_profile %>% select(P_hydrostatic_calc_bar) %>% summary()
+```
+```{r convert-hydrostatic-P-to-bar-NSHQ14}
+# convert measured pressure to bar
+NSHQ14_profile <- NSHQ14_profile %>% mutate(P_bar = P_dbar / 10)
+```
+
+```{r prepare-P-plot-NSHQ14}
+# prepare for plotting
+NSHQ14_profile_longer_P <- NSHQ14_profile %>% select(depth_sampled_mbgl, P_hydrostatic_calc_bar, P_bar) %>% gather(-depth_sampled_mbgl, key = parameter, value = P_bar) %>% mutate(type = if_else(parameter == "P_hydrostatic_calc_bar", "calculated", "measured"))
+```
+
+Compare theoretical hydrostatic pressure versus measured pressure
+```{r P-plot-NSHQ14, fig.height=4, fig.width=4}
+plot_NSHQ14_P <- NSHQ14_profile_longer_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = P_bar, color = type))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+    scale_y_continuous(name = latex2exp::TeX("$\\textit{P}_{hydrostatic}\\,/\\,\\lbrack bar \\rbrack$"))+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_NSHQ14_P
+```
+They are similar.
+
+
+# BA3A well log
+
+## clean up data
+```{r get-relevant-log-data-BA3A}
+# select relevant columns and rename them
+BA3A_profile <- BA3A_profile_raw %>% select(depth_sampled_mbgl = `DEPT[M]`, P_dbar = PRESSURE, T_C = TEMPERATURE, pH = PH, ORP_mV_Ag_AgCl = REDOX, cond_uS_per_cm = `COND(FW)`)
+
+# Filter out nonsense values (i.e. when probe is above water table)
+BA3A_profile <- BA3A_profile %>% filter(!is.na(ORP_mV_Ag_AgCl))
+
+# print some summary statistics
+BA3A_profile %>% summary()
+```
+
+```{r subset-and-print-log-BA3A}
+# subset the data for readability and print
+BA3A_profile %>% slice(seq(from = 1, to = 30000, by = 1000)) %>% kable(digits=1)
+```
+
+## Convert to ORP to SHE
+
+Apply conversion
+```{r apply-Ag-AgCl-SHE-conversion-BA3A}
+BA3A_profile <- BA3A_profile %>% mutate(Eh_mV = ORP_mV_Ag_AgCl + Ag_AgCl_E_T_lm_int + Ag_AgCl_E_T_lm_slope * T_C) # convert probe ORP_mV_Ag_AgCl reading from Ag/AgCl to SHE
+
+# print some summary statistics
+BA3A_profile %>% select(Eh_mV) %>% summary()
+```
+
+## Hydrostatic pressure
+
+Calculate from theory
+```{r calc-hydrostatic-P-BA3A}
+P_BA3A_atmospheric_Pa <- 95490 # measured ambient pressure with Garmin GPSMAP 64S by DBN in 2019
+P_BA3A_atmospheric_bar <-  P_BA3A_atmospheric_Pa * 1e-5
+
+water_level_BA3A_m <- as.numeric(BA3A_profile %>% select(depth_sampled_mbgl) %>% min())
+
+BA3A_profile <- BA3A_profile %>% mutate(water_column_above_m = depth_sampled_mbgl - water_level_BA3A_m)
+
+
+# Hydrostatic pressure in a liquid can be calculated as
+# 
+# p = ρ g h                         (1)
+# 
+# where
+# 
+# p = pressure in liquid (N/m2, Pa, lbf/ft2, psf)
+# 
+# ρ = density of liquid (kg/m3, slugs/ft3)
+# 
+# g = acceleration of gravity (9.81 m/s2, 32.17405 ft/s2)
+# 
+# h = height of fluid column - or depth in the fluid where pressure is measured (m, ft)
+
+# https://www.engineeringtoolbox.com/hydrostatic-pressure-water-d_1632.html
+
+density_water <- 1000 # kg/m3
+g = 9.81 # acceleration of gravity, m/s2
+
+
+BA3A_profile <- BA3A_profile %>% mutate(P_hydrostatic_calc_Pa = P_BA3A_atmospheric_Pa + density_water * g * water_column_above_m)
+
+BA3A_profile <- BA3A_profile %>% mutate(P_hydrostatic_calc_bar = P_hydrostatic_calc_Pa * 1e-5)
+
+# print some summary statistics
+BA3A_profile %>% select(P_hydrostatic_calc_bar) %>% summary()
+```
+```{r convert-hydrostatic-P-to-bar-BA3A}
+# convert measured pressure to bar
+BA3A_profile <- BA3A_profile %>% mutate(P_bar = P_dbar / 10)
+```
+
+```{r prepare-P-plot-BA3A}
+# prepare for plotting
+BA3A_profile_longer_P <- BA3A_profile %>% select(depth_sampled_mbgl, P_hydrostatic_calc_bar, P_bar) %>% gather(-depth_sampled_mbgl, key = parameter, value = P_bar) %>% mutate(type = if_else(parameter == "P_hydrostatic_calc_bar", "calculated", "measured"))
+```
+
+Compare theoretical hydrostatic pressure versus measured pressure
+```{r P-plot-BA3A, fig.height=4, fig.width=4}
+plot_BA3A_P <- BA3A_profile_longer_P %>% ggplot(aes(x = depth_sampled_mbgl))+
+  geom_line(aes(y = P_bar, color = type))+
+  scale_x_reverse(name = "Depth / [mbgl]", expand = c(0.03,0.02), breaks = c(0, 50, 100, 150, 200, 250, 300))+
+    scale_y_continuous(name = latex2exp::TeX("$\\textit{P}_{hydrostatic}\\,/\\,\\lbrack bar \\rbrack$"))+
+  coord_flip()+
+  theme_bw(base_size = 12)+
+  theme(
+    panel.grid = element_blank())
+
+plot_BA3A_P
+```
+They are similar.
+
+
+# Geotherm
+
+## NSHQ14
+
+```{r geotherm-NSHQ14-full, warning=FALSE}
+plot_T_NSHQ14 <- NSHQ14_profile %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_NSHQ14 
+```
+
+```{r geotherm-NSHQ14-below-100m, warning=FALSE}
+NSHQ14_profile_below_100m <- NSHQ14_profile %>% filter(depth_sampled_mbgl > 100)
+
+plot_T_NSHQ14_below_100m <- NSHQ14_profile_below_100m %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+    theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_NSHQ14_below_100m 
+```
+
+```{r lm-T-d-NSHQ14-below-100m}
+# generate linear model
+model_T_d_NSHQ14_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = NSHQ14_profile_below_100m)
+
+# print model summary
+summary(model_T_d_NSHQ14_below_100m)
+```
+### Predict depth of temperature limit of life
+
+```{r lm-T-d-NSHQ14-below-100m_inv}
+# generate linear model (inverse geothemal gradient - easier to work with for predict function)
+model_T_d_NSHQ14_below_100m_inv_lm = lm(depth_sampled_mbgl ~ T_C,
+           data = NSHQ14_profile_below_100m)
+
+# print model summary
+summary(model_T_d_NSHQ14_below_100m_inv_lm)
+```
+
+```{r T_lim_life}
+# make a data frame for use with predict() function to predict the depth at which the temperature limit of life is reached based on the NSHQ14 geothermal gradient below 100 m
+# T limit of life = 122 ˚C (Takai et al., 2008 "Cell proliferation at 122°C and isotopically heavy CH4 production by a hyperthermophilic methanogen under high-pressure cultivation")
+T_limit_of_life_C <- data.frame(T_C = c(122))
+
+# predict based on modeled geothermal and print
+(model_T_d_NSHQ14_below_100m_inv_lm %>% predict.lm(T_limit_of_life_C))
+```
+
+
+## BA3A
+
+```{r geotherm-BA3A-full, warning=FALSE}
+plot_T_BA3A <- BA3A_profile %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+  theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A 
+```
+
+```{r geotherm-BA3A-below-100m, warning=FALSE}
+BA3A_profile_below_100m <- BA3A_profile %>% filter(depth_sampled_mbgl > 100)
+
+plot_T_BA3A_below_100m <- BA3A_profile_below_100m %>% ggplot( mapping = aes(
+    x = T_C,
+    y = depth_sampled_mbgl)) +
+  geom_point() +
+    geom_smooth(method="lm", color = "blue") +
+  stat_poly_eq(aes(label =  paste(stat(eq.label), stat(rr.label), sep = "~~~~")),
+               formula = x ~ y, parse = TRUE, rr.digits = 2, color = "blue", label.x = 0.2)+
+  scale_y_reverse(name = latex2exp::TeX("depth$\\,$/$\\,$$\\left[$m$\\right]$"))+
+    scale_x_continuous(name = latex2exp::TeX("temperature$\\,$/$\\,$$\\left[$˚C$\\right]$"))+
+    theme_bw()+
+  theme(
+    panel.grid = element_blank()
+  )
+
+plot_T_BA3A_below_100m 
+```
+
+```{r lm-T-d-BA3A-below-100m}
+# generate linear model
+model_T_d_BA3A_below_100m = lm(T_C ~ depth_sampled_mbgl,
+           data = BA3A_profile_below_100m)
+
+# print model summary
+summary(model_T_d_BA3A_below_100m)
+```
