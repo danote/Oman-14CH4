@@ -70,7 +70,7 @@ data
 Load in comparison data from the literature
 ```{r load-lit-data}
 # read comparison data from literature
-data_literature <-  read_excel("data_raw/Summary_metadata/CH4_isotope_literature_data.xlsx", na = "NA")
+data_literature <-  read_xlsx("data_raw/Summary_metadata/CH4_isotope_literature_data.xlsx", na = "NA")
 
 # Filter for only samples mentioning chromite or chromitite for Greek rock crushings
 data_literature <-  data_literature %>% filter(if_else(site == "Greece", str_detect(Lithology, "hromit") == TRUE, !is.na(site)))
@@ -115,7 +115,7 @@ fill_5_wells_named <- c("WAB71" = "#999999", "NSHQ14" = "#000000", "NSHQ04" = "#
 
 # levels (for order of appearance in legend)
 
-data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek"))
+data_literature$site <- factor(data_literature$site, levels = c("Oman/UAE", "Philippines", "Mid-Cayman Rise", "Ashadze II","Greece", "Kidd Creek", "Lost City"))
 
 # shapes
 
@@ -384,7 +384,7 @@ alkanes_d13C_oman_wells_and_lit_plot <- ggplot() +
     guides(color = guide_legend(override.aes=list(shape=21))) +
 
   # axis styling
-  scale_x_continuous(name = "C atoms in alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
+  scale_x_continuous(name = "C atoms per alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
   scale_y_continuous(name = latex2exp::TeX("$\\delta ^{13}C$$\\,$/$\\,$\\lbrack$$‰ VPDB$\\rbrack$"))+
   
   # design
@@ -464,7 +464,7 @@ alkanes_d13C_oman_only_plot <- ggplot() +
     guides(color = guide_legend(override.aes=list(shape=21))) +
 
   # axis styling
-  scale_x_continuous(name = "C atoms in alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
+  scale_x_continuous(name = "C atoms per alkane", breaks = c(1,2,3), expand = expand_scale(add = c(0.04)))+
   scale_y_continuous(name = latex2exp::TeX("$\\delta ^{13}C$$\\,$/$\\,$\\lbrack$$‰ VPDB$\\rbrack$"))+
   
   # design
@@ -549,7 +549,7 @@ data_14CH4_NSHQ14_longer_longer  <- data_14CH4_NSHQ14_longer_longer  %>%
     tex_params = as_factor(parameter)%>% 
       fct_recode(
         "$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VPDB \\]$" = "CH4_d13C_permil_VPDB",
-                "$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
+                "$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$" = "CH4_dD_permil_VSMOW"
   )) %>% 
   # make shorter note for NSHQ14
   mutate(notes_short = if_else(notes == "no purge (NP)", "NP", NA_character_))
@@ -676,7 +676,7 @@ CH4_F14C_d13C_dD_plot_year_color_shape_clean
 CH4_F14C_d13C_dD_plot_year_color_shape_clean %>% tag_facet_keep_strip(
   open = "",
   close = "",
-  tag_pool = LETTERS
+  tag_pool = letters
 )
 ```
 
@@ -774,7 +774,7 @@ data_14CH4_NSHQ14_longer %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_per
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")), label.x = "right") +
   geom_point()+
   scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic() +
   theme(
     plot.margin = margin(r = 12)
@@ -878,7 +878,7 @@ data_CD_gathered_NSHQ14 %>% ggplot(aes(x = CH4_d13C_permil_VPDB, y = CH4_dD_perm
   stat_poly_eq(formula =  y ~ x, parse = TRUE, aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~"))) +
   geom_point()+
   scale_x_continuous(name = TeX("$\\delta ^{13}C_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
-  scale_y_continuous(name = TeX("$\\delta D_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
+  scale_y_continuous(name = TeX("$\\delta ^{2}H_{CH_4}\\,/\\,\\[$‰$  \\, VSMOW \\]$")) +
   theme_classic()
 ```
 
@@ -1106,3 +1106,340 @@ Calculate relative difference (%) of the UCI and NOSAMS samples
 (F14C_CH4_measured_NOSAMS - F14C_CH4_measured_UCI) / mean(F14C_CH4_measured_NOSAMS, F14C_CH4_measured_UCI) * 100
 ```
 
+# Anderson-Schulz-Flory distribution
+## NSQH14
+Get the relevant data
+```{r}
+# select relevant hydrocarbon concentration data from well NSHQ14
+data_ASF_NSHQ14 <- data %>% filter(sampling_site == "NSHQ14") %>% select(year_sampled, depth_fluid_intake_mbct, notes, CH4_uM, C2H6_uM, C3H8_uM, n_C4H10_uM, i_C4H10_uM, n_C5H12_uM, i_C5H12_uM, C6H14_uM)
+
+# sum concentrations of compounds of same carbon number
+data_ASF_NSHQ14_sumC4_C5 <- data_ASF_NSHQ14 %>% 
+  rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    C4_sum = sum(n_C4H10_uM,i_C4H10_uM, na.rm = T), # Select columns and replace NAs with 0
+    C5_sum = sum(n_C5H12_uM,i_C5H12_uM, na.rm = T) # Select columns and replace NAs with 0
+  ) %>%
+  ungroup() %>%  # Remove rowwise grouping
+select(year_sampled, year_sampled, depth_fluid_intake_mbct, notes, CH4_uM, C2H6_uM, C3H8_uM, C4_sum, C5_sum, C6H14_uM) %>% 
+  filter(!is.na(C3H8_uM)) #filter out samples that don't at least have a propane detection
+  
+data_ASF_NSHQ14
+
+data_ASF_NSHQ14_sumC4_C5 
+```
+
+Calculate mole fractions
+```{r}
+data_ASF_NSHQ14_sumC4_C5 <- data_ASF_NSHQ14_sumC4_C5 %>% 
+    rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    sum_C1_thru_C6 = sum(
+            c_across(CH4_uM:C6H14_uM))
+    ) %>% 
+  ungroup() # Remove rowwise grouping
+
+# calculate mole fractions
+data_ASF_NSHQ14_mol_frac <- data_ASF_NSHQ14_sumC4_C5 %>% 
+  mutate(
+C1_mol_frac = CH4_uM / sum_C1_thru_C6,
+C2_mol_frac = C2H6_uM / sum_C1_thru_C6,
+C3_mol_frac = C3H8_uM / sum_C1_thru_C6,
+C4_mol_frac = C4_sum / sum_C1_thru_C6,
+C5_mol_frac = C5_sum / sum_C1_thru_C6,
+C6_mol_frac = C6H14_uM / sum_C1_thru_C6,
+    ) %>% 
+  select(year_sampled, year_sampled, depth_fluid_intake_mbct, notes, C1_mol_frac, C2_mol_frac, C3_mol_frac, C4_mol_frac, C5_mol_frac, C6_mol_frac)
+
+
+data_ASF_NSHQ14_sumC4_C5
+
+data_ASF_NSHQ14_mol_frac
+```
+Prep for plotting
+```{r}
+# make carbon number its own column for plotting
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac %>% pivot_longer(
+  cols = starts_with("C"),
+  names_to = "C_number",
+  values_to = "mol_frac"
+) %>% mutate(
+  C_number = C_number %>% str_sub(2,2) %>% as.numeric()
+)
+
+# take log10 of mol_frac
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer %>%
+  filter(mol_frac != 0) %>% # remove rows of 0 mol fraction
+  mutate(log10_mol_frac = log10(mol_frac)) # take log10
+  
+
+data_ASF_NSHQ14_mol_frac_longer
+```
+
+```{r plot-ASF-NSHQ14, fig.width=6, fig.height=4}
+data_ASF_NSHQ14_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = as.character(year_sampled), shape = notes, ))+
+  geom_point()+
+  scale_shape_manual(values = c(1), na.value = 3) +
+  scale_color_manual(name = "year sampled", values = cbPalette_MWL) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
+  theme_classic()
+```
+```{r plot-ASF-NSHQ14-2018}
+data_ASF_NSHQ14_mol_frac_longer_2018 <- data_ASF_NSHQ14_mol_frac_longer %>% filter(year_sampled == 2018)
+
+data_ASF_NSHQ14_mol_frac_longer_2018_plot <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
+  geom_point()+
+  scale_shape_discrete(na.value = 17) +
+  scale_color_manual(values = cbPalette_MWL) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
+  theme_classic()
+
+data_ASF_NSHQ14_mol_frac_longer_2018_plot
+```
+```{r lm-NSHQ14_C2-C6}
+data_ASF_NSHQ14_mol_frac_longer_2018_C2_C6 <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% filter(C_number > 1)
+
+# generate linear model
+model_NSHQ14_mol_frac_longer_2018_C2_C6 = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_NSHQ14_mol_frac_longer_2018_C2_C6)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C6_int <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C6)[1] %>% as.numeric()
+model_NSHQ14_mol_frac_longer_2018_C2_C6_slope <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C6)[2] %>% as.numeric()
+
+# print model summary
+summary(model_NSHQ14_mol_frac_longer_2018_C2_C6)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C6_int
+model_NSHQ14_mol_frac_longer_2018_C2_C6_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C6 region
+```{r}
+(alpha_ASF_slope_NSHQ14_2018_C2_C6 <- 10^model_NSHQ14_mol_frac_longer_2018_C2_C6_slope)
+(alpha_ASF_int_NSHQ14_2018_C2_C6 <- 1 - 10^model_NSHQ14_mol_frac_longer_2018_C2_C6_int)
+```
+
+
+
+```{r lm-NSHQ14_C2-C4}
+data_ASF_NSHQ14_mol_frac_longer_2018_C2_C4 <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% filter(C_number > 1 & C_number < 5)
+
+# generate linear model
+model_NSHQ14_mol_frac_longer_2018_C2_C4 = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_NSHQ14_mol_frac_longer_2018_C2_C4)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C4_int <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C4)[1] %>% as.numeric()
+model_NSHQ14_mol_frac_longer_2018_C2_C4_slope <- coef(model_NSHQ14_mol_frac_longer_2018_C2_C4)[2] %>% as.numeric()
+
+# print model summary
+summary(model_NSHQ14_mol_frac_longer_2018_C2_C4)
+
+model_NSHQ14_mol_frac_longer_2018_C2_C4_int
+model_NSHQ14_mol_frac_longer_2018_C2_C4_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C4 region
+```{r}
+(alpha_ASF_slope_NSHQ14_2018_C2_C4 <- 10^model_NSHQ14_mol_frac_longer_2018_C2_C4_slope)
+(alpha_ASF_int_NSHQ14_2018_C2_C4 <- 1 - 10^model_NSHQ14_mol_frac_longer_2018_C2_C4_int)
+```
+
+```{r plot-ASF-NSHQ14-2018-lms}
+data_ASF_NSHQ14_mol_frac_longer_2018_plot +
+  geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C6_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C6_slope)) +
+    geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C4_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C4_slope), linetype="dashed", color = "red")
+```
+
+## Lost City
+
+Get the relevant data
+
+```{r}
+# select relevant hydrocarbon concentration data from Lost City (Proskurowski et al., 2008)
+data_ASF_LCHF <- data_literature %>% filter(site == "Lost City") %>% filter(author == "Proskurowski et al.") %>% select(CH4_conc, C2H6_conc, C2H4_conc, C3H8_conc, n_C4H10_conc, i_C4H10_conc)
+
+data_ASF_LCHF
+```
+
+
+```{r}
+# sum concentrations of compounds of same carbon number
+data_ASF_LCHF_sumC2_C4 <- data_ASF_LCHF %>%
+  rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    C2_sum = sum(C2H6_conc, C2H4_conc, na.rm = T), # Select columns and replace NAs with 0
+    C4_sum = sum(n_C4H10_conc,i_C4H10_conc, na.rm = T) # Select columns and replace NAs with 0
+  ) %>%
+  ungroup() %>%  # Remove rowwise grouping
+select(CH4_conc, C2_sum, C3H8_conc, C4_sum)
+  
+data_ASF_LCHF_sumC2_C4
+```
+
+Summarize Lost City data absolute concentrations
+```{r}
+# calculate means and standard errors
+data_ASF_LCHF_conc_summ <- data_ASF_LCHF_sumC2_C4 %>% summarise(
+  n=n(),
+  C1_conc_mean = mean(CH4_conc),
+  C1_mol_frac_stderr = sd(CH4_conc) / sqrt(length(CH4_conc)),
+  C1_stderr_over_mean_percent = C1_mol_frac_stderr / C1_conc_mean * 100,
+  C2_conc_mean = mean(C2_sum),
+  C2_mol_frac_stderr = sd(C2_sum) / sqrt(length(C2_sum)),
+  C2_stderr_over_mean_percent = C2_mol_frac_stderr / C2_conc_mean * 100,
+  C3_conc_mean = mean(C3H8_conc),
+  C3_mol_frac_stderr = sd(C3H8_conc) / sqrt(length(C3H8_conc)),
+  C3_stderr_over_mean_percent = C3_mol_frac_stderr / C3_conc_mean * 100,
+  C4_conc_mean = mean(C4_sum),
+  C4_mol_frac_stderr = sd(C4_sum) / sqrt(length(C4_sum)),
+  C4_stderr_over_mean_percent = C4_mol_frac_stderr / C4_conc_mean * 100,
+  )
+
+data_ASF_LCHF_conc_summ
+```
+Showing standard error / mean in percentage form to describe representativeness of the averages
+```{r}
+data_ASF_LCHF_conc_summ %>% select(contains("stderr_over_mean"))
+```
+
+
+
+
+Calculate mole fractions
+```{r}
+data_ASF_LCHF_sumC2_C4 <- data_ASF_LCHF_sumC2_C4 %>% 
+    rowwise() %>%  # Treat each row as a group for calculations
+  mutate(
+    sum_C1_thru_C4 = sum(
+            c_across(CH4_conc:C4_sum))
+    ) %>% 
+  ungroup() # Remove rowwise grouping
+
+# calculate mole fractions
+data_ASF_LCHF_mol_frac <- data_ASF_LCHF_sumC2_C4 %>% 
+  mutate(
+C1_mol_frac = CH4_conc / sum_C1_thru_C4,
+C2_mol_frac = C2_sum / sum_C1_thru_C4,
+C3_mol_frac = C3H8_conc / sum_C1_thru_C4,
+C4_mol_frac = C4_sum / sum_C1_thru_C4
+    ) %>% 
+  select(C1_mol_frac, C2_mol_frac, C3_mol_frac, C4_mol_frac)
+
+
+data_ASF_LCHF_sumC2_C4
+
+data_ASF_LCHF_mol_frac
+```
+
+Summarize Lost City data mol frac
+```{r}
+# calculate means and standard errors
+data_ASF_LCHF_mol_frac_summ <- data_ASF_LCHF_mol_frac %>% summarise(
+  C1_mol_frac_mean = mean(C1_mol_frac),
+  C1_mol_frac_stderr = sd(C1_mol_frac) / sqrt(length(C1_mol_frac)),
+  C1_stderr_over_mean_percent = C1_mol_frac_stderr / C1_mol_frac_mean * 100,
+  C2_mol_frac_mean = mean(C2_mol_frac),
+  C2_mol_frac_stderr = sd(C2_mol_frac) / sqrt(length(C2_mol_frac)),
+  C2_stderr_over_mean_percent = C2_mol_frac_stderr / C2_mol_frac_mean * 100,
+  C3_mol_frac_mean = mean(C3_mol_frac),
+  C3_mol_frac_stderr = sd(C3_mol_frac) / sqrt(length(C3_mol_frac)),
+  C3_stderr_over_mean_percent = C3_mol_frac_stderr / C3_mol_frac_mean * 100,
+  C4_mol_frac_mean = mean(C4_mol_frac),
+  C4_mol_frac_stderr = sd(C4_mol_frac) / sqrt(length(C4_mol_frac)),
+  C4_stderr_over_mean_percent = C4_mol_frac_stderr / C4_mol_frac_mean * 100,
+  )
+
+data_ASF_LCHF_mol_frac_summ
+```
+
+Showing standard error / mean in percentage form to describe representativeness of the averages
+```{r}
+data_ASF_LCHF_mol_frac_summ %>% select(contains("stderr_over_mean"))
+```
+
+Prep for plotting
+```{r}
+# make carbon number its own column for plotting
+data_ASF_LCHF_mol_frac_longer <- data_ASF_LCHF_mol_frac_summ %>% pivot_longer(
+        cols = contains("mol_frac_mean"),
+  names_to = "C_number",
+  values_to = "mol_frac"
+) %>% mutate(
+  C_number = C_number %>% str_sub(2,2) %>% as.numeric()
+) %>% select(C_number, mol_frac)
+
+
+# take log10 of mol_frac and stderr
+data_ASF_LCHF_mol_frac_longer <-data_ASF_LCHF_mol_frac_longer %>%
+  mutate(log10_mol_frac = log10(mol_frac)) # take log10
+  
+
+data_ASF_LCHF_mol_frac_longer
+```
+
+```{r plot-ASF-Lost-City}
+data_ASF_LCHF_mol_frac_longer %>% ggplot(aes(x = C_number, y = log10_mol_frac))+
+  geom_point()+
+  scale_shape_manual(values = c(1), na.value = 3) +
+  theme_classic()
+```
+
+## Lost City NSHQ14 comparison
+
+```{r}
+data_ASF_LCHF_mol_frac_longer <- data_ASF_LCHF_mol_frac_longer %>% mutate(site = "Lost City") %>% select(C_number, log10_mol_frac, site)
+data_ASF_NSHQ14_mol_frac_longer <- data_ASF_NSHQ14_mol_frac_longer_2018 %>% mutate(site = "NSHQ14") %>% select(C_number, log10_mol_frac, site)
+
+data_ASF_NSHQ14_LCHF <- data_ASF_LCHF_mol_frac_longer %>% bind_rows(data_ASF_NSHQ14_mol_frac_longer)
+
+data_ASF_NSHQ14_LCHF
+```
+
+```{r plot-ASF-Lost-City-NSHQ14}
+data_ASF_NSHQ14_LCHF_plot <- data_ASF_NSHQ14_LCHF %>% ggplot(aes(x = C_number, y = log10_mol_frac, color = site, shape = site))+
+  geom_point()+
+  scale_color_manual(values = cbPalette_MWL) +
+  scale_x_continuous(name = "C atoms per molecule", n.breaks = 6) +
+  scale_y_continuous(name = TeX("log$_{10}\\left($mole fraction$\\right)$")) +
+  theme_classic()
+
+data_ASF_NSHQ14_LCHF_plot
+```
+
+
+```{r lm-LCHF_C2-C4}
+# generate linear model
+model_LCHF_mol_frac_longer = lm(log10_mol_frac ~ C_number,
+           data = data_ASF_LCHF_mol_frac_longer %>% filter(C_number > 1))
+
+model_LCHF_mol_frac_longer_int <- coef(model_LCHF_mol_frac_longer)[1] %>% as.numeric()
+model_LCHF_mol_frac_longer_slope <- coef(model_LCHF_mol_frac_longer)[2] %>% as.numeric()
+
+# print model summary
+summary(model_LCHF_mol_frac_longer)
+
+model_LCHF_mol_frac_longer_int
+model_LCHF_mol_frac_longer_slope
+```
+
+Calculate chain-growth probability factor from slope and intercept for C2-C4 region
+```{r}
+(alpha_ASF_slope_LCHF <- 10^model_LCHF_mol_frac_longer_slope)
+(alpha_ASF_int_LCHF <- 1 - 10^model_LCHF_mol_frac_longer_int)
+```
+
+```{r plot-ASF-NSHQ14-LCHF-fits, fig.width=6, fig.height=4}
+linetype_scale_ASF_fits <- c("solid", "dashed", "dotted")
+names(linetype_scale_ASF_fits) <- c("NSHQ14 C2-C6", "NSHQ14 C2-C4", "Lost City C2-C4")
+  
+  
+data_ASF_NSHQ14_LCHF_plot +
+  geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C6_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C6_slope, linetype = "NSHQ14 C2-C6"), color = cbPalette_MWL[2], alpha = 0.25) +
+    geom_abline(aes(intercept = model_NSHQ14_mol_frac_longer_2018_C2_C4_int, slope = model_NSHQ14_mol_frac_longer_2018_C2_C4_slope, linetype="NSHQ14 C2-C4"), color = cbPalette_MWL[2], alpha = 0.25)+
+    geom_abline(aes(intercept = model_LCHF_mol_frac_longer_int, slope = model_LCHF_mol_frac_longer_slope, linetype="Lost City C2-C4"), color = cbPalette_MWL[1], alpha = 0.25) +
+    scale_linetype_manual(name = "lines of best fit",  values = linetype_scale_ASF_fits)
+
+
+```
